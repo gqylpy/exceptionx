@@ -1,36 +1,26 @@
 import setuptools
-import gqylpy_exception as g
-
-gdoc: list = g.__doc__.split('\n')
-
-for index, line in enumerate(gdoc):
-    if line.startswith('@version: ', 4):
-        version = line.split()[-1]
-        break
-_, author, email = gdoc[index + 1].split()
-source = gdoc[index + 2].split()[-1]
 
 setuptools.setup(
-    name=g.__name__,
-    version=version,
-    author=author,
-    author_email=email,
-    license='Apache 2.0',
+    name='exceptionx',
+    version='4.0',
+    author='Unnamed great master',
+    author_email='<gqylpy@outlook.com>',
+    license='MIT',
     url='http://gqylpy.com',
-    project_urls={'Source': source},
+    project_urls={'Source': 'https://github.com/gqylpy/exceptionx'},
     description='''
-        `gqylpy-exception` is a flexible and convenient Python exception
-        handling library that allows you to dynamically create exception classes
-        and provides various exception handling mechanisms.
+        The `exceptionx` is a flexible and convenient Python exception handling
+        library that allows you to dynamically create exception classes and
+        provides various exception handling mechanisms.
     '''.strip().replace('\n       ', ''),
     long_description=open('README.md', encoding='utf8').read(),
     long_description_content_type='text/markdown',
-    packages=[g.__name__],
+    packages=['exceptionx'],
     python_requires='>=3.8',
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: MIT License',
         'Natural Language :: Chinese (Simplified)',
         'Natural Language :: English',
         'Operating System :: OS Independent',

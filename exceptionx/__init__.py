@@ -1,68 +1,74 @@
 """
-`gqylpy-exception` is a flexible and convenient Python exception handling
-library that allows you to dynamically create exception classes and provides
-various exception handling mechanisms.
+The `exceptionx` is a flexible and convenient Python exception handling library
+that allows you to dynamically create exception classes and provides various
+exception handling mechanisms.
 
-    >>> # Dynamically Creating Exceptions.
-    >>> import gqylpy_exception as ge
-    >>> raise ge.AnError(...)
+Key Features:
 
-    >>> # Powerful Exception Handling Capabilities.
-    >>> from gqylpy_exception import TryExcept, Retry, TryContext
+- Dynamic Exception Creation:
+    Dynamically generate exception classes through simple APIs for easy project
+    management and reuse.
+
+- Powerful Exception Handling:
+    Offers decorators (`TryExcept`, `Retry`) and context managers (`TryContext`)
+    for flexible handling of exceptions within functions or code blocks.
+
+- Configurable Options:
+    Supports various exception handling options such as silent handling, raw
+    exception output, logging, custom callbacks, and more.
+
+Example Usage:
+
+Dynamic Exception Creation:
+    >>> import exceptionx as e
+    >>> raise e.AnError(...)
+
+Handling Exceptions with Decorators:
+    >>> from exceptionx import TryExcept, Retry
 
     >>> @TryExcept(ValueError)
     >>> def func():
     >>>     int('a')
 
-    >>> @Retry(count=3, cycle=1)
+    >>> @Retry(count=3, sleep=1)
     >>> def func():
     >>>     int('a')
+
+Handling Exceptions with Context Managers:
+    >>> from exceptionx import TryContext
 
     >>> with TryContext(ValueError):
     >>>     int('a')
 
-    @version: 3.1.1
-    @author: 竹永康 <gqylpy@outlook.com>
-    @source: https://github.com/gqylpy/gqylpy-exception
-
-────────────────────────────────────────────────────────────────────────────────
-Copyright (c) 2022-2024 GQYLPY <http://gqylpy.com>. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+For more information please visit https://github.com/gqylpy/exceptionx.
 """
+import typing
 import logging
 
 from typing import Type, Optional, Union, Tuple, Dict, Callable, Any
+
+if typing.TYPE_CHECKING:
+    import threading
 
 ExceptionTypes    = Union[Type[Exception], Tuple[Type[Exception], ...]]
 ExceptionLogger   = Union[logging.Logger, 'gqylpy_log']
 ExceptionCallback = Callable[[Exception, Callable, '...'], None]
 
 
-class GqylpyError(Exception):
+class Error(Exception):
     """
-    All exception classes created with `gqylpy_exception` inherit from it, you
-    can use it to handle any exception created by `gqylpy_exception`.
+    All exception classes created with `exceptionx` inherit from it.
+    You can use it to handle any exception created by `exceptionx`.
     """
     msg: Any = Exception.args
 
 
-__history__: Dict[str, Type[GqylpyError]]
+__history__: Dict[str, Type[Error]]
 # All the exception classes you've ever created are here.
 # This dictionary is read-only.
 
 
-def __getattr__(ename: str, /) -> Type[GqylpyError]:
+def __getattr__(ename: str, /) -> Type[Error]:
     """
     Create an exception type called `ename` and return it.
 
@@ -73,23 +79,23 @@ def __getattr__(ename: str, /) -> Type[GqylpyError]:
     For Python built-in exception types, returned directly, are not repeatedly
     creation, and not stored to dictionary `__history__`.
     """
-    return __history__.setdefault(ename, type(ename, (GqylpyError,), {}))
+    return __history__.setdefault(ename, type(ename, (Error,), {}))
 
 
 def TryExcept(
-        etype:      ExceptionTypes,
+        etype:     ExceptionTypes,
         /, *,
-        silent:     Optional[bool]              = None,
-        raw:        Optional[bool]              = None,
-        last_tb:    Optional[bool]              = None,
-        logger:     Optional[ExceptionLogger]   = None,
-        ereturn:    Optional[Any]               = None,
-        ecallback:  Optional[ExceptionCallback] = None,
-        eexit:      Optional[bool]              = None
+        silent:    Optional[bool]              = None,
+        raw:       Optional[bool]              = None,
+        last_tb:   Optional[bool]              = None,
+        logger:    Optional[ExceptionLogger]   = None,
+        ereturn:   Optional[Any]               = None,
+        ecallback: Optional[ExceptionCallback] = None,
+        eexit:     Optional[bool]              = None
 ) -> Callable:
     """
     `TryExcept` is a decorator that handles exceptions raised by the function it
-    decorates.
+    decorates (support decorating asynchronous functions).
 
         >>> @TryExcept(ValueError)
         >>> def func():
@@ -134,27 +140,30 @@ def TryExcept(
 
 
 def Retry(
-        etype:   Optional[ExceptionTypes]    = None,
+        etype:      Optional[ExceptionTypes]    = None,
         /, *,
-        count:   Optional[int]               = None,
-        cycle:   Optional[Union[int, float]] = None,
-        silent:  Optional[bool]              = None,
-        raw:     Optional[bool]              = None,
-        last_tb: Optional[bool]              = None,
-        logger:  Optional[ExceptionLogger]   = None
+        count:      Optional[int]               = None,
+        sleep:      Optional[Union[int, float]] = None,
+        limit_time: Optional[Union[int, float]] = None,
+        event:      Optional['threading.Event'] = None,
+        emsg:       Optional[str]               = None,
+        silent:     Optional[bool]              = None,
+        raw:        Optional[bool]              = None,
+        last_tb:    Optional[bool]              = None,
+        logger:     Optional[ExceptionLogger]   = None
 ) -> Callable:
     """
     `Retry` is a decorator that retries exceptions raised by the function it
-    decorates. When an exception is raised in the decorated function, it
-    attempts to re-execute the decorated function based on the parameters
-    `count` and `cycle`.
+    decorates (support decorating asynchronous functions). When an exception is
+    raised in the decorated function, it attempts to re-execute the decorated
+    function based on the parameters `count` and `sleep`.
 
-        >>> @Retry(count=3, cycle=1)
+        >>> @Retry(count=3, sleep=1)
         >>> def func():
         >>>     int('a')
 
         >>> @TryExcept(ValueError)
-        >>> @Retry(count=3, cycle=1)
+        >>> @Retry(count=3, sleep=1)
         >>> def func():
         >>>     int('a')
 
@@ -165,8 +174,34 @@ def Retry(
     @param count:
         The number of retries, 0 means infinite retries, infinite by default.
 
-    @param cycle:
-        Retry cycle (time between retries), with a default of 0 seconds.
+    @param sleep:
+        The interval time between each retry, default is 0 seconds. The interval
+        time will always be slightly longer than the actual value (almost
+        negligible). Note that the interval time will be reduced by the time
+        consumed by the execution of the decorated function.
+
+    @param limit_time:
+        This parameter is used to set the total time limit for retry operations
+        in seconds. 0 indicates no time limit, default is no time limit. If the
+        total time taken by the retry operation (including the time to execute
+        the function and the interval time, with the interval time always added
+        beforehand) exceeds this limit, the retry will be stopped immediately
+        and the last encountered exception will be thrown.
+
+    @param event:
+        An optional `threading.Event` object used to control the retry
+        mechanism. During the retry process, this event can be set at any time
+        to stop retrying. Once the event is set, even if the retry count has
+        not reached the set upper limit or the time limit has not been exceeded,
+        retrying will stop immediately and the last encountered exception will
+        be thrown.
+
+    @param emsg:
+        The exception massge. Only when the information of the captured
+        exception contains this string, a retry will be performed; otherwise,
+        the encountered exception will be thrown immediately. This is used to
+        filter the exception messages that need to be retried, but it is not
+        recommended to use it.
 
     @param silent:
         If True, exceptions will be silently handled without any output.
@@ -188,41 +223,15 @@ def Retry(
     """
 
 
-async def TryExceptAsync(etype: ExceptionTypes, /, **kw) -> Callable:
-    """`TryExcept` is a decorator that handles exceptions raised by the
-    asynchronous function it decorates."""
-    warnings.warn(
-        f'will be deprecated soon, replaced to {TryExcept}.', DeprecationWarning
-    )
-    return TryExcept(etype, **kw)
-
-
-async def RetryAsync(
-        etype: ExceptionTypes              = None,
-        /, *,
-        count: Optional[int]               = None,
-        cycle: Optional[Union[int, float]] = None,
-        **kw
-) -> Callable:
-    """`Retry` is a decorator that retries exceptions raised by the asynchronous
-    function it decorates. When an exception is raised in the decorated
-    asynchronous function, it attempts to re-execute the decorated asynchronous
-    function based on the parameters `count` and `cycle`."""
-    warnings.warn(
-        f'will be deprecated soon, replaced to {Retry}.', DeprecationWarning
-    )
-    return Retry(etype, count=count, cycle=cycle, **kw)
-
-
 def TryContext(
-        etype:      ExceptionTypes,
+        etype:     ExceptionTypes,
         /, *,
-        silent:     Optional[bool]              = None,
-        raw:        Optional[bool]              = None,
-        last_tb:    Optional[bool]              = None,
-        logger:     Optional[ExceptionLogger]   = None,
-        ecallback:  Optional[ExceptionCallback] = None,
-        eexit:      Optional[bool]              = None
+        silent:    Optional[bool]              = None,
+        raw:       Optional[bool]              = None,
+        last_tb:   Optional[bool]              = None,
+        logger:    Optional[ExceptionLogger]   = None,
+        ecallback: Optional[ExceptionCallback] = None,
+        eexit:     Optional[bool]              = None
 ) -> None:
     """
     TryContext is a context manager that handles exceptions raised within the
@@ -272,10 +281,10 @@ class _xe6_xad_x8c_xe7_x90_xaa_xe6_x80_xa1_xe7_x8e_xb2_xe8_x90_x8d_xe4_xba_x91:
             logging.__file__[:-20] == __file__[:-len(__name__) - 27]:
 
         gpack = globals()
-        gpath = f'{__name__}.g {__name__[7:]}'
+        gpath = f'{__name__}.i {__name__}'
         gcode = __import__(gpath, fromlist=...)
 
-        gpack['GqylpyError'] = gcode.GqylpyError
+        gpack['Error'] = gcode.Error
         gpack['__history__'] = gcode.__history__
 
         for gname in gcode.__dir__():
@@ -284,6 +293,3 @@ class _xe6_xad_x8c_xe7_x90_xaa_xe6_x80_xa1_xe7_x8e_xb2_xe8_x90_x8d_xe4_xba_x91:
                 gfunc.__module__ = __package__
                 gfunc.__doc__ = gpack[gname].__doc__
                 gpack[gname] = gfunc
-
-        gpack['TryExceptAsync'] = gpack['TryExcept']
-        gpack['RetryAsync']     = gpack['Retry']

@@ -1,41 +1,42 @@
 [<img alt="LOGO" src="http://gqylpy.com/static/img/favicon.ico" height="21" width="21"/>](http://www.gqylpy.com)
-[![Release](https://img.shields.io/github/release/gqylpy/gqylpy-exception.svg?style=flat-square")](https://github.com/gqylpy/gqylpy-exception/releases/latest)
-[![Python Versions](https://img.shields.io/pypi/pyversions/gqylpy_exception)](https://pypi.org/project/gqylpy_exception)
-[![License](https://img.shields.io/pypi/l/gqylpy_exception)](https://github.com/gqylpy/gqylpy-exception/blob/master/LICENSE)
-[![Downloads](https://static.pepy.tech/badge/gqylpy_exception)](https://pepy.tech/project/gqylpy_exception)
+[![Release](https://img.shields.io/github/release/gqylpy/exceptionx.svg?style=flat-square")](https://github.com/gqylpy/exceptionx/releases/latest)
+[![Python Versions](https://img.shields.io/pypi/pyversions/exceptionx)](https://pypi.org/project/exceptionx)
+[![License](https://img.shields.io/pypi/l/exceptionx)](https://github.com/gqylpy/exceptionx/blob/master/LICENSE)
+[![Downloads](https://static.pepy.tech/badge/exceptionx)](https://pepy.tech/project/exceptionx)
 
-# gqylpy-exception
-English | [中文](https://github.com/gqylpy/gqylpy-exception/blob/master/README_CN.md)
+# exceptionx
+English | [中文](https://github.com/gqylpy/exceptionx/blob/master/README_CN.md)
 
-`gqylpy-exception` is a flexible and convenient Python exception handling library that allows you to dynamically create exception classes and provides various exception handling mechanisms.
+__exceptionx__ is a flexible and convenient Python exception handling library that allows you to dynamically create exception classes and provides various exception handling mechanisms.
+> The predecessor of exceptionx is [gqylpy-exception](https://github.com/gqylpy/gqylpy-exception).
 
-<kbd>pip3 install gqylpy_exception</kbd>
+<kbd>pip3 install exceptionx</kbd>
 
 ## Dynamically Creating Exceptions
 
-With `gqylpy-exception`, you can instantly create exception classes when needed, without the need for advance definition. For example, if you want to throw an exception named `NotUnderstandError`, you can simply import the library and call it as follows:
+With exceptionx, you can instantly create exception classes when needed, without the need for advance definition. For example, if you want to throw an exception named `NotUnderstandError`, you can simply import the library and call it as follows:
 
 ```python
-import gqylpy_exception as ge
+import exceptionx as e
 
-raise ge.NotUnderstandError(...)
+raise e.NotUnderstandError(...)
 ```
 
-Here, `NotUnderstandError` is not predefined by `gqylpy-exception` but is dynamically created through the magic method `__getattr__` when you try to access `ge.NotUnderstandError`. This flexibility means you can create exception classes with any name as needed.
+Here, `NotUnderstandError` is not predefined by exceptionx but is dynamically created through the magic method `__getattr__` when you try to access `e.NotUnderstandError`. This flexibility means you can create exception classes with any name as needed.
 
-Additionally, `gqylpy-exception` ensures that the same exception class is not created repeatedly. All created exception classes are stored in the `ge.__history__` dictionary for quick access later.
+Additionally, exceptionx ensures that the same exception class is not created repeatedly. All created exception classes are stored in the `e.__history__` dictionary for quick access later.
 
 There is another usage, import and create immediately:
 
 ```python
-from gqylpy_exception import NotUnderstandError
+from exceptionx import NotUnderstandError
 
 raise NotUnderstandError(...)
 ```
 
 ## Powerful Exception Handling Capabilities
 
-`gqylpy-exception` also provides a series of powerful exception handling tools:
+exceptionx also provides a series of powerful exception handling tools:
 
 - `TryExcept`: A decorator that catches exceptions raised in the decorated function and outputs the exception information to the terminal (instead of throwing it). This helps prevent the program from crashing due to unhandled exceptions.
 - `Retry`: A decorator that works similarly to `TryExcept` but attempts to re-execute the function, controlling the number of attempts and the interval between each retry through parameters. It throws an exception after reaching the maximum number of attempts.
@@ -44,7 +45,7 @@ raise NotUnderstandError(...)
 **Handling Exceptions in Functions with `TryExcept`**
 
 ```python
-from gqylpy_exception import TryExcept
+from exceptionx import TryExcept
 
 @TryExcept(ValueError)
 def func():
@@ -58,7 +59,7 @@ The default handling scheme is to output brief exception information to the term
 **Retrying Exceptions in Functions with `Retry`**
 
 ```python
-from gqylpy_exception import Retry
+from exceptionx import Retry
 
 @Retry(count=3, cycle=1)
 def func():
@@ -70,7 +71,7 @@ If an exception is raised in the decorated function, it will attempt to re-execu
 `Retry` can be used in combination with `TryExcept` to retry exceptions first and then handle them if the retries are unsuccessful:
 
 ```python
-from gqylpy_exception import TryExcept, Retry
+from exceptionx import TryExcept, Retry
 
 @TryExcept(ValueError)
 @Retry(count=3, cycle=1)
@@ -81,10 +82,10 @@ def func():
 **Handling Exceptions in Contexts with `TryContext`**
 
 ```python
-from gqylpy_exception import TryContext
+from exceptionx import TryContext
 
 with TryContext(ValueError):
     int('a')
 ```
 
-With `gqylpy-exception`, you can handle exceptions in Python programs more flexibly and efficiently, enhancing the robustness and reliability of your code.
+With exceptionx, you can handle exceptions in Python programs more flexibly and efficiently, enhancing the robustness and reliability of your code.

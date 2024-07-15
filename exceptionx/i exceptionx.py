@@ -1,18 +1,3 @@
-"""
-Copyright (c) 2022-2024 GQYLPY <http://gqylpy.com>. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
 import sys
 import time
 import logging
@@ -21,6 +6,7 @@ import builtins
 import warnings
 import functools
 import traceback
+import threading
 
 from copy import copy, deepcopy
 from contextlib import contextmanager
@@ -36,11 +22,16 @@ else:
     })):
         def __getitem__(self, *a): ...
 
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    TypeAlias = TypeVar('TypeAlias')
+
 Closure = TypeVar('Closure', bound=Callable)
 
-ExceptionTypes    = Union[Type[Exception], Tuple[Type[Exception], ...]]
-ExceptionLogger   = Union[logging.Logger, 'gqylpy_log']
-ExceptionCallback = Callable[[Exception, FunctionType, '...'], None]
+ExceptionTypes: TypeAlias = Union[Type[Exception], Tuple[Type[Exception], ...]]
+ExceptionLogger: TypeAlias = Union[logging.Logger, 'gqylpy_log']
+ExceptionCallback: TypeAlias = Callable[[Exception, FunctionType, '...'], None]
 
 UNIQUE: Final[Annotated[object, 'A unique object.']] = object()
 
@@ -49,7 +40,7 @@ CO_QUALNAME: Final[Annotated[str, '''
 ''']] = 'co_qualname' if sys.version_info >= (3, 11) else 'co_name'
 
 
-class GqylpyError(Exception):
+class Error(Exception):
     __module__ = builtins.__name__
 
     def __init_subclass__(cls) -> None:
@@ -59,7 +50,7 @@ class GqylpyError(Exception):
     msg: Any = Exception.args
 
 
-builtins.GqylpyError = GqylpyError
+builtins.Error = Error
 
 
 class MasqueradeClass(type):
@@ -135,7 +126,7 @@ class __history__(dict, metaclass=type('SingletonMode', (MasqueradeClass,), {
         return copy(self)
 
 
-def __getattr__(ename: str, /) -> Union[Type[BaseException], Type[GqylpyError]]:
+def __getattr__(ename: str, /) -> Union[Type[BaseException], Type[Error]]:
     if ename in __history__:
         return __history__[ename]
 
@@ -154,7 +145,7 @@ def __getattr__(ename: str, /) -> Union[Type[BaseException], Type[GqylpyError]]:
             'end with "Error".', stacklevel=2
         )
 
-    etype = type(ename, (GqylpyError,), {})
+    etype = type(ename, (Error,), {})
     dict.__setitem__(__history__, ename, etype)
 
     return etype
@@ -179,7 +170,8 @@ class TryExcept:
         if silent_exc is not UNIQUE:
             warnings.warn(
                 'parameter "silent_exc" will be deprecated soon, replaced to '
-                '"silent".', DeprecationWarning,
+                '"silent". (Did you switch from "gqylpy-exception"?)',
+                category=DeprecationWarning,
                 stacklevel=2 if self.__class__ is TryExcept else 3
             )
             if silent is None:
@@ -188,7 +180,8 @@ class TryExcept:
         if raw_exc is not UNIQUE:
             warnings.warn(
                 'parameter "raw_exc" will be deprecated soon, replaced to '
-                '"raw".', DeprecationWarning,
+                '"raw". (Did you switch from "gqylpy-exception"?)',
+                category=DeprecationWarning,
                 stacklevel=2 if self.__class__ is TryExcept else 3
             )
             if raw is None:
@@ -248,83 +241,127 @@ class Retry(TryExcept):
 
     def __init__(
             self,
-            etype:      ExceptionTypes            = Exception,
+            etype:      ExceptionTypes              = Exception,
             /, *,
-            count:      int                       = 0,
-            cycle:      Union[int, float]         = 0,
-            silent:     Optional[bool]            = None,
-            silent_exc: bool                      = UNIQUE,
-            raw:        Optional[bool]            = None,
-            raw_exc:    bool                      = UNIQUE,
-            last_tb:    bool                      = None,
-            logger:     Optional[ExceptionLogger] = None
+            count:      int                         = 0,
+            sleep:      Optional[Union[int, float]] = None,
+            cycle:      Union[int, float]           = UNIQUE,
+            limit_time: Union[int, float]           = 0,
+            event:      threading.Event             = threading.Event(),
+            emsg:       str                         = None,
+            silent:     Optional[bool]              = None,
+            silent_exc: bool                        = UNIQUE,
+            raw:        Optional[bool]              = None,
+            raw_exc:    bool                        = UNIQUE,
+            last_tb:    bool                        = None,
+            logger:     Optional[ExceptionLogger]   = None
     ):
-        if not (count.__class__ is int and count >= 0):
-            if not (count.__class__ is str and count.isdigit()):
-                raise __getattr__('ParameterError')(
-                    'parameter "count" must be a positive integer or 0, '
-                    f'not "{count}".'
-                )
-            count = int(count)
+        x = 'sleep'
+        if cycle is not UNIQUE:
+            warnings.warn(
+                'parameter "cycle" will be deprecated soon, replaced to '
+                '"sleep". (Did you switch from "gqylpy-exception"?)',
+                category=DeprecationWarning, stacklevel=2
+            )
+            if sleep is None:
+                sleep = cycle
+                x = 'cycle'
 
-        if cycle.__class__ not in (int, float):
-            try:
-                cycle = float(cycle)
-            except (TypeError, ValueError):
-                raise __getattr__('ParameterError')(
-                    'parameter "cycle" type must be an int or float, '
-                    f'not "{cycle.__class__.__name__}".'
-                ) from None
-        if cycle < 0:
+        if count == 0:
+            count = 'N'
+        elif not (isinstance(count, int) and count > 0):
             raise __getattr__('ParameterError')(
-                f'parameter "cycle" must be greater than 0, not {cycle}.'
+                'parameter "count" must be of type int and greater than or '
+                f'equal to 0, not {count!r}.'
             )
 
-        self.count = count or 'N'
-        self.cycle = cycle
+        if sleep is None:
+            sleep = 0
+        elif not (isinstance(sleep, (int, float)) and sleep >= 0):
+            raise __getattr__('ParameterError')(
+                f'parameter "{x}" must be of type int or float and greater '
+                f'than or equal to 0, not {sleep!r}.'
+            )
+
+        if limit_time == 0:
+            limit_time = float('inf')
+        elif not (isinstance(limit_time, (int, float)) and limit_time > 0):
+            raise __getattr__('ParameterError')(
+                'parameter "limit_time" must be of type int or float and '
+                f'greater than or equal to 0, not {limit_time!r}.'
+            )
+
+        if not isinstance(event, threading.Event):
+            raise __getattr__('ParameterError')(
+                'parameter "event" must be of type "threading.Event", '
+                f'not "{event.__class__.__name__}".'
+            )
+
+        if not (emsg is None or isinstance(emsg, str)):
+            raise __getattr__('ParameterError')(
+                'parameter "emsg" must be of type str, '
+                f'not "{emsg.__class__.__name__}".'
+            )
+
+        self.count      = count
+        self.sleep      = sleep
+        self.limit_time = limit_time
+        self.event      = event
+        self.emsg       = emsg
 
         TryExcept.__init__(
-            self, etype,
-            silent    =silent,
-            silent_exc=silent_exc,
-            raw       =raw,
-            raw_exc   =raw_exc,
-            last_tb   =last_tb,
-            logger    =logger
+            self, etype, silent=silent, silent_exc=silent_exc, raw=raw,
+            raw_exc=raw_exc, last_tb=last_tb, logger=logger
         )
 
     def core(self, func: FunctionType, *a, **kw) -> Any:
         count = 0
-
+        before = time.monotonic()
         while True:
+            start = time.monotonic()
             try:
                 return func(*a, **kw)
             except self.etype as e:
-                count += 1
+                if not (self.emsg is None or self.emsg in str(e)):
+                    raise
                 self.exception_handling(e, count=count)
-                if count == self.count:
-                    raise e
-
-            time.sleep(self.cycle)
+                count += 1
+                end = time.monotonic()
+                sleep = max(.0, self.sleep - (end - start))
+                if (
+                        count == self.count
+                        or end - before + sleep >= self.limit_time
+                        or self.event.is_set()
+                ):
+                    raise
+                time.sleep(sleep)
 
     async def acore(self, func: FunctionType, *a, **kw) -> Any:
         count = 0
-
+        before = time.monotonic()
         while True:
+            start = time.monotonic()
             try:
                 return await func(*a, **kw)
             except self.etype as e:
-                count += 1
+                if not (self.emsg is None or self.emsg in str(e)):
+                    raise
                 self.exception_handling(e, count=count)
-                if count == self.count:
-                    raise e
-
-            await asyncio.sleep(self.cycle)
+                count += 1
+                end = time.monotonic()
+                sleep = max(.0, self.sleep - (end - start))
+                if (
+                        count == self.count
+                        or end - before + sleep >= self.limit_time
+                        or self.event.is_set()
+                ):
+                    raise
+                time.sleep(sleep)
 
     def exception_handling(self, e: Exception, *, count: int) -> None:
         if not self.silent:
             einfo: str = get_einfo(e, raw=self.raw, last_tb=self.last_tb)
-            einfo = f'[try:{count}/{self.count}:{self.cycle}] {einfo}'
+            einfo = f'[try:{count}/{self.count}:{self.sleep}] {einfo}'
             self.logger(einfo)
 
 
@@ -403,5 +440,8 @@ def get_einfo(e: Exception, /, *, raw: bool, last_tb: bool) -> str:
         ename:  str = e.__class__.__name__
 
         return f'[{module}.{name}.line{lineno}.{ename}] {e}'
-    except Exception as ee:
-        return f'TryError: {ee!r}'
+    except Exception:
+        return traceback.format_exc() + '\nPlease note that this exception ' \
+            'occurred within the exceptionx library, not in your code.' \
+            '\nPlease report the error to ' \
+            'https://github.com/gqylpy/exceptionx/issues, thank you.\n'
