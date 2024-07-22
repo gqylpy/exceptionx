@@ -55,18 +55,18 @@ def func():
 ```python
 from exceptionx import Retry
 
-@Retry(count=3, cycle=1)
+@Retry(sleep=1, count=3)
 def func():
     int('a')
 ```
-若被装饰的函数中引发了异常，会尝试重新执行被装饰的函数，默认重试 `Exception` 及其所有子类的异常。像上面这样调用 `Retry(count=3, cycle=1)` 表示最大执行3次，每次间隔1秒。
+若被装饰的函数中引发了异常，会尝试重新执行被装饰的函数，默认重试 `Exception` 及其所有子类的异常。像上面这样调用 `Retry(sleep=1, count=3)` 表示最大执行3次，每次间隔1秒。
 
 `Retry` 可以配合 `TryExcept` 使用，将先重试异常，若重试无果，则在最后处理异常：
 ```python
 from exceptionx import TryExcept, Retry
 
 @TryExcept(ValueError)
-@Retry(count=3, cycle=1)
+@Retry(sleep=1, count=3)
 def func():
     int('a')
 ```

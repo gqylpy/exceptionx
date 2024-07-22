@@ -30,7 +30,7 @@ Handling Exceptions with Decorators:
     >>> def func():
     >>>     int('a')
 
-    >>> @Retry(count=3, sleep=1)
+    >>> @Retry(sleep=1, count=3)
     >>> def func():
     >>>     int('a')
 
@@ -52,7 +52,7 @@ if typing.TYPE_CHECKING:
 
 ExceptionTypes    = Union[Type[Exception], Tuple[Type[Exception], ...]]
 ExceptionLogger   = Union[logging.Logger, 'gqylpy_log']
-ExceptionCallback = Callable[[Exception, Callable, '...'], None]
+ExceptionCallback = Callable[..., None]
 
 
 class Error(Exception):
@@ -85,8 +85,10 @@ def __getattr__(ename: str, /) -> Type[Error]:
 def TryExcept(
         etype:     ExceptionTypes,
         /, *,
+        emsg:      Optional[str]               = None,
         silent:    Optional[bool]              = None,
         raw:       Optional[bool]              = None,
+        invert:    Optional[bool]              = None,
         last_tb:   Optional[bool]              = None,
         logger:    Optional[ExceptionLogger]   = None,
         ereturn:   Optional[Any]               = None,
@@ -105,17 +107,30 @@ def TryExcept(
         The types of exceptions to be handled, multiple types can be passed in
         using a tuple.
 
+    @param emsg:
+        The exception message. Only when the information of the captured
+        exception contains this string, a retry will be performed; otherwise,
+        the encountered exception will be thrown immediately. This is used to
+        filter the exception messages that need to be retried, but it is not
+        recommended to use it.
+
     @param silent:
-        If True, exceptions will be silently handled without any output.
-        Defaults to False.
+        If True, exceptions will be silently handled without any output. The
+        default is False.
 
     @param raw:
-        If True, raw exception information will be directly output. Defaults to
-        False. Note that its priority is lower than the `silent` parameter.
+        If True, raw exception information will be directly output. The default
+        is False. Note that its priority is lower than the `silent` parameter.
+
+    @param invert:
+        Used for inverting the exception type. If set to True, it will not
+        handle the exception specified by the parameter `etype`, but instead
+        handle all other exceptions that inherit from `Exception`. The default
+        is False.
 
     @param last_tb:
-        Whether to trace to the last traceback object of the exception. Defaults
-        to False, tracing only to the current code segment.
+        Whether to trace to the last traceback object of the exception. The
+        default is False, tracing only to the current code segment.
 
     @param logger:
         By default, exception information is output to the terminal via
@@ -125,7 +140,7 @@ def TryExcept(
 
     @param ereturn:
         The value to be returned when the decorated function raises an
-        exception. Defaults to None.
+        exception. The default is None.
 
     @param ecallback:
         Accepts a callable object and invokes it when an exception is raised.
@@ -135,20 +150,21 @@ def TryExcept(
         If True, the program will execute `raise SystemExit(4)` and exit after
         an exception is raised, with an exit code of 4. If the ecallback
         parameter is provided, the program will execute the callback function
-        first before exiting. Defaults to False.
+        first before exiting. The default is False.
     """
 
 
 def Retry(
         etype:      Optional[ExceptionTypes]    = None,
         /, *,
-        count:      Optional[int]               = None,
+        emsg:       Optional[str]               = None,
         sleep:      Optional[Union[int, float]] = None,
+        count:      Optional[int]               = None,
         limit_time: Optional[Union[int, float]] = None,
         event:      Optional['threading.Event'] = None,
-        emsg:       Optional[str]               = None,
         silent:     Optional[bool]              = None,
         raw:        Optional[bool]              = None,
+        invert:     Optional[bool]              = None,
         last_tb:    Optional[bool]              = None,
         logger:     Optional[ExceptionLogger]   = None
 ) -> Callable:
@@ -156,14 +172,14 @@ def Retry(
     `Retry` is a decorator that retries exceptions raised by the function it
     decorates (support decorating asynchronous functions). When an exception is
     raised in the decorated function, it attempts to re-execute the decorated
-    function based on the parameters `count` and `sleep`.
+    function.
 
-        >>> @Retry(count=3, sleep=1)
+        >>> @Retry(sleep=1, count=3)
         >>> def func():
         >>>     int('a')
 
         >>> @TryExcept(ValueError)
-        >>> @Retry(count=3, sleep=1)
+        >>> @Retry(sleep=1, count=3)
         >>> def func():
         >>>     int('a')
 
@@ -171,14 +187,21 @@ def Retry(
         The types of exceptions to be handled, multiple types can be specified
         by passing them in a tuple. The default is `Exception`.
 
-    @param count:
-        The number of retries, 0 means infinite retries, infinite by default.
+    @param emsg:
+        The exception message. Only when the information of the captured
+        exception contains this string, a retry will be performed; otherwise,
+        the encountered exception will be thrown immediately. This is used to
+        filter the exception messages that need to be retried, but it is not
+        recommended to use it.
 
     @param sleep:
         The interval time between each retry, default is 0 seconds. The interval
         time will always be slightly longer than the actual value (almost
         negligible). Note that the interval time will be reduced by the time
         consumed by the execution of the decorated function.
+
+    @param count:
+        The number of retries, 0 means infinite retries, infinite by default.
 
     @param limit_time:
         This parameter is used to set the total time limit for retry operations
@@ -196,38 +219,38 @@ def Retry(
         retrying will stop immediately and the last encountered exception will
         be thrown.
 
-    @param emsg:
-        The exception massge. Only when the information of the captured
-        exception contains this string, a retry will be performed; otherwise,
-        the encountered exception will be thrown immediately. This is used to
-        filter the exception messages that need to be retried, but it is not
-        recommended to use it.
-
     @param silent:
-        If True, exceptions will be silently handled without any output.
-        Defaults to False.
+        If True, exceptions will be silently handled without any output. The
+        default is False.
 
     @param raw:
-        If True, raw exception information will be directly output. Defaults to
-        False. Note that its priority is lower than the `silent` parameter.
+        If True, raw exception information will be directly output. The default
+        is False. Note that its priority is lower than the `silent` parameter.
+
+    @param invert:
+        Used for inverting the exception type. If set to True, it will not retry
+        the exception specified by the parameter `etype`, but instead retry all
+        other exceptions that inherit from `Exception`. The default is False.
 
     @param last_tb:
-        Whether to trace to the last traceback object of the exception. Defaults
-        to False, tracing only to the current code segment.
+        Whether to trace to the last traceback object of the exception. The
+        default is False, tracing only to the current code segment.
 
     @param logger:
         By default, exception information is output to the terminal via
         `sys.stderr`. If you want to use your own logger to record exception
-        information, you can pass the logger to this parameter, and the `error`
-        method of the logger will be called internally.
+        information, you can pass the logger to this parameter, and the
+        `warning` method of the logger will be called internally.
     """
 
 
 def TryContext(
         etype:     ExceptionTypes,
         /, *,
+        emsg:      Optional[str]               = None,
         silent:    Optional[bool]              = None,
         raw:       Optional[bool]              = None,
+        invert:    Optional[bool]              = None,
         last_tb:   Optional[bool]              = None,
         logger:    Optional[ExceptionLogger]   = None,
         ecallback: Optional[ExceptionCallback] = None,
@@ -244,17 +267,30 @@ def TryContext(
         The types of exceptions to be handled, multiple types can be passed in
         using a tuple.
 
+    @param emsg:
+        The exception message. Only when the information of the captured
+        exception contains this string, a retry will be performed; otherwise,
+        the encountered exception will be thrown immediately. This is used to
+        filter the exception messages that need to be retried, but it is not
+        recommended to use it.
+
     @param silent:
-        If True, exceptions will be silently handled without any output.
-        Defaults to False.
+        If True, exceptions will be silently handled without any output. The
+        default is False.
 
     @param raw:
-        If True, raw exception information will be directly output. Defaults to
-        False. Note that its priority is lower than the `silent` parameter.
+        If True, raw exception information will be directly output. The default
+        is False. Note that its priority is lower than the `silent` parameter.
+
+    @param invert:
+        Used for inverting the exception type. If set to True, it will not
+        handle the exception specified by the parameter `etype`, but instead
+        handle all other exceptions that inherit from `Exception`. The default
+        is False.
 
     @param last_tb:
-        Whether to trace to the last traceback object of the exception. Defaults
-        to False, tracing only to the current code segment.
+        Whether to trace to the last traceback object of the exception. The
+        default is False, tracing only to the current code segment.
 
     @param logger:
         By default, exception information is output to the terminal via
@@ -270,7 +306,7 @@ def TryContext(
         If True, the program will execute `raise SystemExit(4)` and exit after
         an exception is raised, with an exit code of 4. If the ecallback
         parameter is provided, the program will execute the callback function
-        first before exiting. Defaults to False.
+        first before exiting. The default is False.
     """
 
 

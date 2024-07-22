@@ -61,12 +61,12 @@ The default handling scheme is to output brief exception information to the term
 ```python
 from exceptionx import Retry
 
-@Retry(count=3, cycle=1)
+@Retry(sleep=1, count=3)
 def func():
     int('a')
 ```
 
-If an exception is raised in the decorated function, it will attempt to re-execute the decorated function. The default behavior is to retry exceptions of type `Exception` and all its subclasses. Calling `Retry(count=3, cycle=1)` as above means a maximum of 3 attempts will be made, with a 1-second interval between each attempt.
+If an exception is raised in the decorated function, it will attempt to re-execute the decorated function. The default behavior is to retry exceptions of type `Exception` and all its subclasses. Calling `Retry(sleep=1, count=3)` as above means a maximum of 3 attempts will be made, with a 1-second interval between each attempt.
 
 `Retry` can be used in combination with `TryExcept` to retry exceptions first and then handle them if the retries are unsuccessful:
 
@@ -74,7 +74,7 @@ If an exception is raised in the decorated function, it will attempt to re-execu
 from exceptionx import TryExcept, Retry
 
 @TryExcept(ValueError)
-@Retry(count=3, cycle=1)
+@Retry(sleep=1, count=3)
 def func():
     int('a')
 ```

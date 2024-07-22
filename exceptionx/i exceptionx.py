@@ -11,8 +11,9 @@ import threading
 from copy import copy, deepcopy
 from contextlib import contextmanager
 
-from types import FunctionType, FrameType, TracebackType
-from typing import TypeVar, Type, Final, Optional, Union, Tuple, Callable, Any
+from types import FrameType, TracebackType
+from typing import \
+    TypeVar, Type, Final, Optional, Union, Tuple, Callable, NoReturn, Any
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
@@ -27,11 +28,12 @@ if sys.version_info >= (3, 10):
 else:
     TypeAlias = TypeVar('TypeAlias')
 
-Closure = TypeVar('Closure', bound=Callable)
+Wrapped = WrappedClosure = TypeVar('Wrapped', bound=Callable[..., Any])
+WrappedReturn: TypeAlias = TypeVar('WrappedReturn')
 
 ExceptionTypes: TypeAlias = Union[Type[Exception], Tuple[Type[Exception], ...]]
 ExceptionLogger: TypeAlias = Union[logging.Logger, 'gqylpy_log']
-ExceptionCallback: TypeAlias = Callable[[Exception, FunctionType, '...'], None]
+ExceptionCallback: TypeAlias = Callable[..., None]
 
 UNIQUE: Final[Annotated[object, 'A unique object.']] = object()
 
@@ -114,7 +116,7 @@ class __history__(dict, metaclass=type('SingletonMode', (MasqueradeClass,), {
     '__new__': lambda *a: MasqueradeClass.__new__(*a)()
 })):
 
-    def __setitem__(self, *a, **kw) -> None:
+    def __setitem__(self, *a, **kw) -> NoReturn:
         raise __getattr__('ReadOnlyError')('this dictionary is read-only.')
 
     __delitem__ = setdefault = update = pop = popitem = clear = __setitem__
@@ -153,20 +155,48 @@ def __getattr__(ename: str, /) -> Union[Type[BaseException], Type[Error]]:
 
 class TryExcept:
 
+    def __new__(
+            cls, etype: Union[ExceptionTypes, Wrapped], /, **kw
+    ) -> Union['TryExcept', WrappedClosure]:
+        ins = object.__new__(cls)
+        if isinstance(etype, type) and issubclass(etype, Exception):
+            return ins
+        if callable(etype):
+            ins.__init__(Exception)
+            return ins(etype)
+        if isinstance(etype, tuple):
+            for et in etype:
+                if not (isinstance(et, type) and issubclass(et, Exception)):
+                    break
+            else:
+                return ins
+        raise __getattr__('ParameterError')(
+            'parameter "etype" must be a subclass inherited from "Exception" '
+            f'or multiple ones packaged using a tuple, not {etype!r}.'
+        )
+
     def __init__(
             self,
             etype:      ExceptionTypes,
             /, *,
+            emsg:       Optional[str]               = None,
             silent:     Optional[bool]              = None,
             silent_exc: bool                        = UNIQUE,
             raw:        Optional[bool]              = None,
             raw_exc:    bool                        = UNIQUE,
+            invert:     bool                        = False,
             last_tb:    bool                        = False,
             logger:     Optional[ExceptionLogger]   = None,
             ereturn:    Optional[Any]               = None,
             ecallback:  Optional[ExceptionCallback] = None,
             eexit:      bool                        = False
     ):
+        if not (emsg is None or isinstance(emsg, str)):
+            raise __getattr__('ParameterError')(
+                'parameter "emsg" must be of type str, '
+                f'not "{emsg.__class__.__name__}".'
+            )
+
         if silent_exc is not UNIQUE:
             warnings.warn(
                 'parameter "silent_exc" will be deprecated soon, replaced to '
@@ -188,15 +218,17 @@ class TryExcept:
                 raw = raw_exc
 
         self.etype     = etype
+        self.emsg      = emsg
         self.silent    = silent
         self.raw       = raw
+        self.invert    = invert
         self.last_tb   = last_tb
         self.logger    = get_logger(logger)
         self.ereturn   = ereturn
         self.ecallback = ecallback
         self.eexit     = eexit
 
-    def __call__(self, func: FunctionType) -> Closure:
+    def __call__(self, func: Wrapped, /) -> WrappedClosure:
         try:
             core = func.__closure__[1].cell_contents.core.__func__
         except (TypeError, IndexError, AttributeError):
@@ -206,29 +238,40 @@ class TryExcept:
             if core in (TryExcept.acore, Retry.acore):
                 self.core = self.acore
 
-        @functools.wraps(func, updated=('__dict__', '__globals__'))
+        @functools.wraps(func)
         def inner(*a, **kw) -> Any:
             return self.core(func, *a, **kw)
 
+        inner.__self = self
         return inner
 
-    def core(self, func: FunctionType, *a, **kw) -> Any:
+    def core(self, func: Wrapped, *a, **kw) -> WrappedReturn:
         try:
             return func(*a, **kw)
         except self.etype as e:
+            if self.invert or not (self.emsg is None or self.emsg in str(e)):
+                raise
+            self.exception_handling(func, e, *a, **kw)
+        except Exception as e:
+            if not (self.invert and (self.emsg is None or self.emsg in str(e))):
+                raise
             self.exception_handling(func, e, *a, **kw)
         return self.ereturn
 
-    async def acore(self, func: FunctionType, *a, **kw) -> Any:
+    async def acore(self, func: Wrapped, *a, **kw) -> WrappedReturn:
         try:
             return await func(*a, **kw)
         except self.etype as e:
+            if self.invert or not (self.emsg is None or self.emsg in str(e)):
+                raise
+            self.exception_handling(func, e, *a, **kw)
+        except Exception as e:
+            if not (self.invert and (self.emsg is None or self.emsg in str(e))):
+                raise
             self.exception_handling(func, e, *a, **kw)
         return self.ereturn
 
-    def exception_handling(
-            self, func: FunctionType, e: Exception, *a, **kw
-    ) -> None:
+    def exception_handling(self, func: Wrapped, e: Exception, *a, **kw) -> None:
         if not self.silent:
             self.logger(get_einfo(e, raw=self.raw, last_tb=self.last_tb))
         if self.ecallback is not None:
@@ -239,20 +282,29 @@ class TryExcept:
 
 class Retry(TryExcept):
 
+    def __new__(
+            cls, etype: Union[ExceptionTypes, Wrapped] = Exception, /, **kw
+    ) -> Union['Retry', WrappedClosure]:
+        ins = TryExcept.__new__(cls, etype)
+        if not isinstance(ins, Retry):
+            ins._TryExcept__self.silent = True
+        return ins
+
     def __init__(
             self,
             etype:      ExceptionTypes              = Exception,
             /, *,
-            count:      int                         = 0,
+            emsg:       Optional[str]               = None,
             sleep:      Optional[Union[int, float]] = None,
+            count:      int                         = 0,
             cycle:      Union[int, float]           = UNIQUE,
             limit_time: Union[int, float]           = 0,
-            event:      threading.Event             = threading.Event(),
-            emsg:       str                         = None,
+            event:      Optional[threading.Event]   = None,
             silent:     Optional[bool]              = None,
             silent_exc: bool                        = UNIQUE,
             raw:        Optional[bool]              = None,
             raw_exc:    bool                        = UNIQUE,
+            invert:     bool                        = False,
             last_tb:    bool                        = None,
             logger:     Optional[ExceptionLogger]   = None
     ):
@@ -267,20 +319,22 @@ class Retry(TryExcept):
                 sleep = cycle
                 x = 'cycle'
 
-        if count == 0:
-            count = 'N'
-        elif not (isinstance(count, int) and count > 0):
-            raise __getattr__('ParameterError')(
-                'parameter "count" must be of type int and greater than or '
-                f'equal to 0, not {count!r}.'
-            )
-
         if sleep is None:
             sleep = 0
         elif not (isinstance(sleep, (int, float)) and sleep >= 0):
             raise __getattr__('ParameterError')(
                 f'parameter "{x}" must be of type int or float and greater '
                 f'than or equal to 0, not {sleep!r}.'
+            )
+        elif isinstance(sleep, float) and sleep.is_integer():
+            sleep = int(sleep)
+
+        if count == 0:
+            count = 'N'
+        elif not (isinstance(count, int) and count > 0):
+            raise __getattr__('ParameterError')(
+                'parameter "count" must be of type int and greater than or '
+                f'equal to 0, not {count!r}.'
             )
 
         if limit_time == 0:
@@ -290,96 +344,144 @@ class Retry(TryExcept):
                 'parameter "limit_time" must be of type int or float and '
                 f'greater than or equal to 0, not {limit_time!r}.'
             )
+        elif isinstance(limit_time, float) and limit_time.is_integer():
+            limit_time = int(limit_time)
 
-        if not isinstance(event, threading.Event):
+        if not (event is None or isinstance(event, threading.Event)):
             raise __getattr__('ParameterError')(
                 'parameter "event" must be of type "threading.Event", '
                 f'not "{event.__class__.__name__}".'
             )
 
-        if not (emsg is None or isinstance(emsg, str)):
-            raise __getattr__('ParameterError')(
-                'parameter "emsg" must be of type str, '
-                f'not "{emsg.__class__.__name__}".'
-            )
-
-        self.count      = count
         self.sleep      = sleep
+        self.count      = count
         self.limit_time = limit_time
         self.event      = event
-        self.emsg       = emsg
 
         TryExcept.__init__(
-            self, etype, silent=silent, silent_exc=silent_exc, raw=raw,
-            raw_exc=raw_exc, last_tb=last_tb, logger=logger
+            self, etype, emsg=emsg, silent=silent, silent_exc=silent_exc,
+            raw=raw, raw_exc=raw_exc, invert=invert, last_tb=last_tb,
+            logger=logger
         )
 
-    def core(self, func: FunctionType, *a, **kw) -> Any:
+    def core(self, func: Wrapped, *a, **kw) -> WrappedReturn:
         count = 0
         before = time.monotonic()
         while True:
             start = time.monotonic()
             try:
                 return func(*a, **kw)
-            except self.etype as e:
-                if not (self.emsg is None or self.emsg in str(e)):
+            except Exception as e:
+                contain_emsg: bool = self.emsg is None or self.emsg in str(e)
+                if isinstance(e, self.etype):
+                    if self.invert or not contain_emsg:
+                        raise
+                elif not (self.invert and contain_emsg):
                     raise
-                self.exception_handling(e, count=count)
                 count += 1
+                self.output_einfo(e, count=count, start=start, before=before)
                 end = time.monotonic()
                 sleep = max(.0, self.sleep - (end - start))
                 if (
                         count == self.count
                         or end - before + sleep >= self.limit_time
-                        or self.event.is_set()
+                        or self.event is not None and self.event.is_set()
                 ):
                     raise
                 time.sleep(sleep)
 
-    async def acore(self, func: FunctionType, *a, **kw) -> Any:
+    async def acore(self, func: Wrapped, *a, **kw) -> WrappedReturn:
         count = 0
         before = time.monotonic()
         while True:
             start = time.monotonic()
             try:
                 return await func(*a, **kw)
-            except self.etype as e:
-                if not (self.emsg is None or self.emsg in str(e)):
+            except Exception as e:
+                contain_emsg: bool = self.emsg is None or self.emsg in str(e)
+                if isinstance(e, self.etype):
+                    if self.invert or not contain_emsg:
+                        raise
+                elif not (self.invert and contain_emsg):
                     raise
-                self.exception_handling(e, count=count)
                 count += 1
+                self.output_einfo(e, count=count, start=start, before=before)
                 end = time.monotonic()
                 sleep = max(.0, self.sleep - (end - start))
                 if (
                         count == self.count
                         or end - before + sleep >= self.limit_time
-                        or self.event.is_set()
+                        or self.event is not None and self.event.is_set()
                 ):
                     raise
                 time.sleep(sleep)
 
-    def exception_handling(self, e: Exception, *, count: int) -> None:
-        if not self.silent:
-            einfo: str = get_einfo(e, raw=self.raw, last_tb=self.last_tb)
-            einfo = f'[try:{count}/{self.count}:{self.sleep}] {einfo}'
-            self.logger(einfo)
+    def output_einfo(
+            self, e: Exception, *, count: int, start: float, before: float
+    ) -> None:
+        if (
+                self.silent or time.monotonic() - start + self.sleep < .1
+                and (self.count == 'N' or self.count >= 30)
+                and 1 < count < self.count
+                and (self.event is None or not self.event.is_set())
+        ):
+            return
+
+        einfo: str = get_einfo(e, raw=self.raw, last_tb=self.last_tb)
+        x = f'[try:{count}/{self.count}'
+
+        if self.limit_time != float('inf'):
+            x += f':{second2time(self.sleep)}'
+            spent_time = second2time(self.get_spent_time(start, before))
+            x += f',limit_time:{spent_time}/{second2time(self.limit_time)}'
+        elif self.sleep >= 90:
+            x += f':{second2time(self.sleep)}'
+        else:
+            x += f':{self.sleep}'
+
+        if self.event is not None:
+            x += f',event={self.event.is_set()}'
+
+        self.logger(f'{x}] {einfo}')
+
+    def get_spent_time(self, start: float, before: float) -> Union[int, float]:
+        now = time.monotonic()
+
+        if isinstance(self.sleep, float) or isinstance(self.limit_time, float):
+            spent_time = round(now - before, 2)
+            if spent_time.is_integer():
+                spent_time = int(spent_time)
+        else:
+            spent_time = now - before
+            if now - start + self.sleep >= 3:
+                spent_time = round(spent_time)
+
+        return spent_time
 
 
 @contextmanager
 def TryContext(
         etype:     ExceptionTypes,
         /, *,
-        silent:    bool                                  = False,
-        raw:       bool                                  = False,
-        last_tb:   bool                                  = False,
-        logger:    Optional[ExceptionLogger]             = None,
-        ecallback: Optional[Callable[[Exception], None]] = None,
-        eexit:     bool                                  = False
+        emsg:      Optional[str]               = None,
+        silent:    bool                        = False,
+        raw:       bool                        = False,
+        invert:    bool                        = False,
+        last_tb:   bool                        = False,
+        logger:    Optional[ExceptionLogger]   = None,
+        ecallback: Optional[ExceptionCallback] = None,
+        eexit:     bool                        = False
 ) -> None:
     logger = get_logger(logger)
     try:
         yield
-    except etype as e:
+    except Exception as e:
+        contain_emsg: bool = emsg is None or emsg in str(e)
+        if isinstance(e, etype):
+            if invert or not contain_emsg:
+                raise
+        elif not (invert and contain_emsg):
+            raise
         if not silent:
             logger(get_einfo(e, raw=raw, last_tb=last_tb))
         if ecallback is not None:
@@ -413,14 +515,13 @@ def get_logger(logger: logging.Logger) -> Callable[[str], None]:
         caller = logger.error
 
     if previous_frame.f_code is TryContext.__wrapped__.__code__:
-        stacklevel = 4
+        stacklevel = 3
     else:
-        stacklevel = 5
-
+        stacklevel = 4
     if is_glog_module:
-        caller = functools.partial(caller, stacklevel=stacklevel)
+        stacklevel += 1
 
-    return caller
+    return functools.partial(caller, stacklevel=stacklevel)
 
 
 def get_einfo(e: Exception, /, *, raw: bool, last_tb: bool) -> str:
@@ -433,6 +534,9 @@ def get_einfo(e: Exception, /, *, raw: bool, last_tb: bool) -> str:
         if last_tb:
             while tb.tb_next:
                 tb = tb.tb_next
+        else:
+            while tb.tb_frame.f_code.co_filename == __file__:
+                tb = tb.tb_next
 
         module: str = tb.tb_frame.f_globals['__name__']
         name:   str = getattr(tb.tb_frame.f_code, CO_QUALNAME)
@@ -442,6 +546,28 @@ def get_einfo(e: Exception, /, *, raw: bool, last_tb: bool) -> str:
         return f'[{module}.{name}.line{lineno}.{ename}] {e}'
     except Exception:
         return traceback.format_exc() + '\nPlease note that this exception ' \
-            'occurred within the exceptionx library, not in your code.' \
-            '\nPlease report the error to ' \
+            'occurred within the exceptionx library, not in your code.\n' \
+            'Another exception occurred while we were handling the exception ' \
+            'in your code, very sorry. \nPlease report the error to ' \
             'https://github.com/gqylpy/exceptionx/issues, thank you.\n'
+
+
+def second2time(second: Union[int, float], /) -> str:
+    sec = int(second)
+    dec = round(second - sec, 2)
+
+    units = (('d', 86400), ('h', 3600), ('m', 60))
+    r = ''
+
+    for u, s in units:
+        if sec >= s:
+            v, sec = divmod(sec, s)
+            r += f'{v}{u}'
+
+    if sec or dec:
+        sec += dec
+        if isinstance(sec, float):
+            sec = int(sec) if sec.is_integer() else round(sec, 2)
+        r += f'{sec}s'
+
+    return r or '0s'
