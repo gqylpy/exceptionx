@@ -155,18 +155,18 @@ def TryExcept(
 
 
 def Retry(
-        etype:      Optional[ExceptionTypes]    = None,
+        etype:      Optional[ExceptionTypes]         = None,
         /, *,
-        emsg:       Optional[str]               = None,
-        sleep:      Optional[Union[int, float]] = None,
-        count:      Optional[int]               = None,
-        limit_time: Optional[Union[int, float]] = None,
-        event:      Optional['threading.Event'] = None,
-        silent:     Optional[bool]              = None,
-        raw:        Optional[bool]              = None,
-        invert:     Optional[bool]              = None,
-        last_tb:    Optional[bool]              = None,
-        logger:     Optional[ExceptionLogger]   = None
+        emsg:       Optional[str]                    = None,
+        sleep:      Optional[Union[int, float, str]] = None,
+        count:      Optional[int]                    = None,
+        limit_time: Optional[Union[int, float, str]] = None,
+        event:      Optional['threading.Event']      = None,
+        silent:     Optional[bool]                   = None,
+        raw:        Optional[bool]                   = None,
+        invert:     Optional[bool]                   = None,
+        last_tb:    Optional[bool]                   = None,
+        logger:     Optional[ExceptionLogger]        = None
 ) -> Callable:
     """
     `Retry` is a decorator that retries exceptions raised by the function it
@@ -198,7 +198,8 @@ def Retry(
         The interval time between each retry, default is 0 seconds. The interval
         time will always be slightly longer than the actual value (almost
         negligible). Note that the interval time will be reduced by the time
-        consumed by the execution of the decorated function.
+        consumed by the execution of the decorated function. `sleep` supports
+        passing time in the format of "1h2m3s".
 
     @param count:
         The number of retries, 0 means infinite retries, infinite by default.
@@ -209,7 +210,8 @@ def Retry(
         total time taken by the retry operation (including the time to execute
         the function and the interval time, with the interval time always added
         beforehand) exceeds this limit, the retry will be stopped immediately
-        and the last encountered exception will be thrown.
+        and the last encountered exception will be thrown. `limit_time` supports
+        passing time in the format of "1h2m3s".
 
     @param event:
         An optional `threading.Event` object used to control the retry

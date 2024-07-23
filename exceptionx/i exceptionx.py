@@ -1,3 +1,4 @@
+import re
 import sys
 import time
 import logging
@@ -292,21 +293,21 @@ class Retry(TryExcept):
 
     def __init__(
             self,
-            etype:      ExceptionTypes              = Exception,
+            etype:      ExceptionTypes                   = Exception,
             /, *,
-            emsg:       Optional[str]               = None,
-            sleep:      Optional[Union[int, float]] = None,
-            count:      int                         = 0,
-            cycle:      Union[int, float]           = UNIQUE,
-            limit_time: Union[int, float]           = 0,
-            event:      Optional[threading.Event]   = None,
-            silent:     Optional[bool]              = None,
-            silent_exc: bool                        = UNIQUE,
-            raw:        Optional[bool]              = None,
-            raw_exc:    bool                        = UNIQUE,
-            invert:     bool                        = False,
-            last_tb:    bool                        = None,
-            logger:     Optional[ExceptionLogger]   = None
+            emsg:       Optional[str]                    = None,
+            sleep:      Optional[Union[int, float, str]] = None,
+            count:      int                              = 0,
+            cycle:      Union[int, float, str]           = UNIQUE,
+            limit_time: Union[int, float, str]           = 0,
+            event:      Optional[threading.Event]        = None,
+            silent:     Optional[bool]                   = None,
+            silent_exc: bool                             = UNIQUE,
+            raw:        Optional[bool]                   = None,
+            raw_exc:    bool                             = UNIQUE,
+            invert:     bool                             = False,
+            last_tb:    bool                             = None,
+            logger:     Optional[ExceptionLogger]        = None
     ):
         x = 'sleep'
         if cycle is not UNIQUE:
@@ -321,6 +322,8 @@ class Retry(TryExcept):
 
         if sleep is None:
             sleep = 0
+        elif isinstance(sleep, str):
+            sleep = time2second(sleep)
         elif not (isinstance(sleep, (int, float)) and sleep >= 0):
             raise __getattr__('ParameterError')(
                 f'parameter "{x}" must be of type int or float and greater '
@@ -339,6 +342,8 @@ class Retry(TryExcept):
 
         if limit_time == 0:
             limit_time = float('inf')
+        elif isinstance(limit_time, str):
+            limit_time = time2second(limit_time)
         elif not (isinstance(limit_time, (int, float)) and limit_time > 0):
             raise __getattr__('ParameterError')(
                 'parameter "limit_time" must be of type int or float and '
@@ -552,14 +557,41 @@ def get_einfo(e: Exception, /, *, raw: bool, last_tb: bool) -> str:
             'https://github.com/gqylpy/exceptionx/issues, thank you.\n'
 
 
+def time2second(unit_time: str, /, *, __pattern__ = re.compile(r'''
+        (?:(\d+(?:\.\d+)?)d)?
+        (?:(\d+(?:\.\d+)?)h)?
+        (?:(\d+(?:\.\d+)?)m)?
+        (?:(\d+(?:\.\d+)?)s?)?
+''', flags=re.X)) -> Union[int, float]:
+    if unit_time.isdigit():
+        return int(unit_time)
+
+    result = __pattern__.fullmatch(unit_time)
+
+    try:
+        d, h, m, s = result.groups()
+    except AttributeError:
+        raise ValueError(
+            f'unit time "{unit_time}" format is incorrect.'
+        ) from None
+
+    r = 0
+
+    for x, s in (d, 86400), (h, 3600), (m, 60), (s, 1):
+        if x is not None:
+            x = int(x) if x.isdigit() else float(x)
+            r += x * s
+
+    return int(r) if isinstance(r, float) and r.is_integer() else r
+
+
 def second2time(second: Union[int, float], /) -> str:
     sec = int(second)
     dec = round(second - sec, 2)
 
-    units = (('d', 86400), ('h', 3600), ('m', 60))
     r = ''
 
-    for u, s in units:
+    for u, s in ('d', 86400), ('h', 3600), ('m', 60):
         if sec >= s:
             v, sec = divmod(sec, s)
             r += f'{v}{u}'
