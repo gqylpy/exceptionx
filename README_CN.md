@@ -16,9 +16,9 @@ __exceptionx__ 是一个灵活且便捷的Python异常处理库，允许你动�
 
 使用 exceptionx，你可以在需要时即时创建异常类，而无需提前定义。例如，如果你希望抛出一个名为 `NotUnderstandError` 的异常，只需导入库并以如下方式调用：
 ```python
-import exceptionx as e
+import exceptionx as ex
 
-raise e.NotUnderstandError(...)
+raise ex.NotUnderstandError(...)
 ```
 
 在这里，`NotUnderstandError` 并不是 exceptionx 预先定义的，而是在你尝试访问 `e.NotUnderstandError` 时通过魔化方法 `__getattr__` 动态创建的。这种灵活性意味着你可以根据需要创建任何名称的异常类。
