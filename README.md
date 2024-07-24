@@ -17,9 +17,9 @@ __exceptionx__ is a flexible and convenient Python exception handling library th
 With exceptionx, you can instantly create exception classes when needed, without the need for advance definition. For example, if you want to throw an exception named `NotUnderstandError`, you can simply import the library and call it as follows:
 
 ```python
-import exceptionx as e
+import exceptionx as ex
 
-raise e.NotUnderstandError(...)
+raise ex.NotUnderstandError(...)
 ```
 
 Here, `NotUnderstandError` is not predefined by exceptionx but is dynamically created through the magic method `__getattr__` when you try to access `e.NotUnderstandError`. This flexibility means you can create exception classes with any name as needed.

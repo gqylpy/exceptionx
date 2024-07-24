@@ -566,18 +566,12 @@ def time2second(unit_time: str, /, *, __pattern__ = re.compile(r'''
     if unit_time.isdigit():
         return int(unit_time)
 
-    result = __pattern__.fullmatch(unit_time)
-
-    try:
-        d, h, m, s = result.groups()
-    except AttributeError:
-        raise ValueError(
-            f'unit time "{unit_time}" format is incorrect.'
-        ) from None
+    if not (m := __pattern__.fullmatch(unit_time)):
+        raise ValueError(f'unit time "{unit_time}" format is incorrect.')
 
     r = 0
 
-    for x, s in (d, 86400), (h, 3600), (m, 60), (s, 1):
+    for x, s in zip(m.groups(), (86400, 3600, 60, 1)):
         if x is not None:
             x = int(x) if x.isdigit() else float(x)
             r += x * s

@@ -20,8 +20,8 @@ Key Features:
 Example Usage:
 
 Dynamic Exception Creation:
-    >>> import exceptionx as e
-    >>> raise e.AnError(...)
+    >>> import exceptionx as ex
+    >>> raise ex.AnError(...)
 
 Handling Exceptions with Decorators:
     >>> from exceptionx import TryExcept, Retry
