@@ -326,8 +326,8 @@ class Retry(TryExcept):
             sleep = time2second(sleep)
         elif not (isinstance(sleep, (int, float)) and sleep >= 0):
             raise __getattr__('ParameterError')(
-                f'parameter "{x}" must be of type int or float and greater '
-                f'than or equal to 0, not {sleep!r}.'
+                f'parameter "{x}" is expected to be of type int or float and '
+                f'greater than or equal to 0, not {sleep!r}.'
             )
         elif isinstance(sleep, float) and sleep.is_integer():
             sleep = int(sleep)
@@ -346,8 +346,8 @@ class Retry(TryExcept):
             limit_time = time2second(limit_time)
         elif not (isinstance(limit_time, (int, float)) and limit_time > 0):
             raise __getattr__('ParameterError')(
-                'parameter "limit_time" must be of type int or float and '
-                f'greater than or equal to 0, not {limit_time!r}.'
+                'parameter "limit_time" is expected to be of type int or float '
+                f'and greater than or equal to 0, not {limit_time!r}.'
             )
         elif isinstance(limit_time, float) and limit_time.is_integer():
             limit_time = int(limit_time)
@@ -562,12 +562,12 @@ def time2second(unit_time: str, /, *, __pattern__ = re.compile(r'''
         (?:(\d+(?:\.\d+)?)h)?
         (?:(\d+(?:\.\d+)?)m)?
         (?:(\d+(?:\.\d+)?)s?)?
-''', flags=re.X)) -> Union[int, float]:
+''', flags=re.X | re.I)) -> Union[int, float]:
     if unit_time.isdigit():
         return int(unit_time)
 
-    if not (m := __pattern__.fullmatch(unit_time)):
-        raise ValueError(f'unit time "{unit_time}" format is incorrect.')
+    if not (unit_time and (m := __pattern__.fullmatch(unit_time))):
+        raise ValueError(f'unit time {unit_time!r} format is incorrect.')
 
     r = 0
 
