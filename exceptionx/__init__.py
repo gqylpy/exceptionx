@@ -42,17 +42,28 @@ Handling Exceptions with Context Managers:
 
 For more information please visit https://github.com/gqylpy/exceptionx.
 """
+import sys
 import typing
-import logging
 
-from typing import Type, Optional, Union, Tuple, Dict, Callable, Any
+from typing import Type, TypeVar, Optional, Union, Tuple, Dict, Callable, Any
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    TypeAlias = TypeVar('TypeAlias')
 
 if typing.TYPE_CHECKING:
+    import logging
     import threading
 
-ExceptionTypes    = Union[Type[Exception], Tuple[Type[Exception], ...]]
-ExceptionLogger   = Union[logging.Logger, 'gqylpy_log']
-ExceptionCallback = Callable[..., None]
+ETypes: TypeAlias = \
+    TypeVar('ETypes', Type[Exception], Tuple[Type[Exception], ...])
+
+ELogger: TypeAlias = TypeVar('ELogger', 'logging.Logger', 'gqylpy_log')
+ECallback: TypeAlias = TypeVar('ECallback', bound=Callable[..., None])
+
+WrappedClosure: TypeAlias = TypeVar('WrappedClosure', bound=Callable[..., Any])
+Second: TypeAlias = TypeVar('Second', bound=Union[int, float, str])
 
 
 class Error(Exception):
@@ -83,18 +94,18 @@ def __getattr__(ename: str, /) -> Type[Error]:
 
 
 def TryExcept(
-        etype:     ExceptionTypes,
+        etype:     ETypes,
         /, *,
-        emsg:      Optional[str]               = None,
-        silent:    Optional[bool]              = None,
-        raw:       Optional[bool]              = None,
-        invert:    Optional[bool]              = None,
-        last_tb:   Optional[bool]              = None,
-        logger:    Optional[ExceptionLogger]   = None,
-        ereturn:   Optional[Any]               = None,
-        ecallback: Optional[ExceptionCallback] = None,
-        eexit:     Optional[bool]              = None
-) -> Callable:
+        emsg:      Optional[str]       = None,
+        silent:    Optional[bool]      = None,
+        raw:       Optional[bool]      = None,
+        invert:    Optional[bool]      = None,
+        last_tb:   Optional[bool]      = None,
+        logger:    Optional[ELogger]   = None,
+        ereturn:   Optional[Any]       = None,
+        ecallback: Optional[ECallback] = None,
+        eexit:     Optional[bool]      = None
+) -> WrappedClosure:
     """
     `TryExcept` is a decorator that handles exceptions raised by the function it
     decorates (support decorating asynchronous functions).
@@ -155,19 +166,19 @@ def TryExcept(
 
 
 def Retry(
-        etype:      Optional[ExceptionTypes]         = None,
+        etype:      Optional[ETypes]            = None,
         /, *,
-        emsg:       Optional[str]                    = None,
-        sleep:      Optional[Union[int, float, str]] = None,
-        count:      Optional[int]                    = None,
-        limit_time: Optional[Union[int, float, str]] = None,
-        event:      Optional['threading.Event']      = None,
-        silent:     Optional[bool]                   = None,
-        raw:        Optional[bool]                   = None,
-        invert:     Optional[bool]                   = None,
-        last_tb:    Optional[bool]                   = None,
-        logger:     Optional[ExceptionLogger]        = None
-) -> Callable:
+        emsg:       Optional[str]               = None,
+        sleep:      Optional[Second]            = None,
+        count:      Optional[int]               = None,
+        limit_time: Optional[Second]            = None,
+        event:      Optional['threading.Event'] = None,
+        silent:     Optional[bool]              = None,
+        raw:        Optional[bool]              = None,
+        invert:     Optional[bool]              = None,
+        last_tb:    Optional[bool]              = None,
+        logger:     Optional[ELogger]           = None
+) -> WrappedClosure:
     """
     `Retry` is a decorator that retries exceptions raised by the function it
     decorates (support decorating asynchronous functions). When an exception is
@@ -247,16 +258,16 @@ def Retry(
 
 
 def TryContext(
-        etype:     ExceptionTypes,
+        etype:     ETypes,
         /, *,
-        emsg:      Optional[str]               = None,
-        silent:    Optional[bool]              = None,
-        raw:       Optional[bool]              = None,
-        invert:    Optional[bool]              = None,
-        last_tb:   Optional[bool]              = None,
-        logger:    Optional[ExceptionLogger]   = None,
-        ecallback: Optional[ExceptionCallback] = None,
-        eexit:     Optional[bool]              = None
+        emsg:      Optional[str]       = None,
+        silent:    Optional[bool]      = None,
+        raw:       Optional[bool]      = None,
+        invert:    Optional[bool]      = None,
+        last_tb:   Optional[bool]      = None,
+        logger:    Optional[ELogger]   = None,
+        ecallback: Optional[ECallback] = None,
+        eexit:     Optional[bool]      = None
 ) -> None:
     """
     TryContext is a context manager that handles exceptions raised within the
@@ -313,21 +324,16 @@ def TryContext(
 
 
 class _xe6_xad_x8c_xe7_x90_xaa_xe6_x80_xa1_xe7_x8e_xb2_xe8_x90_x8d_xe4_xba_x91:
-    import sys
+    gpack = globals()
+    gpath = f'{__name__}.i {__name__}'
+    gcode = __import__(gpath, fromlist=...)
 
-    if sys.platform != 'linux' or \
-            logging.__file__[:-20] == __file__[:-len(__name__) - 27]:
+    gpack['Error'] = gcode.Error
+    gpack['__history__'] = gcode.__history__
 
-        gpack = globals()
-        gpath = f'{__name__}.i {__name__}'
-        gcode = __import__(gpath, fromlist=...)
-
-        gpack['Error'] = gcode.Error
-        gpack['__history__'] = gcode.__history__
-
-        for gname in gcode.__dir__():
-            gfunc = getattr(gcode, gname)
-            if gname in gpack and getattr(gfunc, '__module__', None) == gpath:
-                gfunc.__module__ = __package__
-                gfunc.__doc__ = gpack[gname].__doc__
-                gpack[gname] = gfunc
+    for gname in gcode.__dir__():
+        gfunc = getattr(gcode, gname)
+        if gname in gpack and getattr(gfunc, '__module__', None) == gpath:
+            gfunc.__module__ = __package__
+            gfunc.__doc__ = gpack[gname].__doc__
+            gpack[gname] = gfunc
