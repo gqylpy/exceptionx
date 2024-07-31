@@ -32,9 +32,11 @@ else:
 Wrapped = WrappedClosure = TypeVar('Wrapped', bound=Callable[..., Any])
 WrappedReturn: TypeAlias = TypeVar('WrappedReturn')
 
-ExceptionTypes: TypeAlias = Union[Type[Exception], Tuple[Type[Exception], ...]]
-ExceptionLogger: TypeAlias = Union[logging.Logger, 'gqylpy_log']
-ExceptionCallback: TypeAlias = Callable[..., None]
+ETypes: TypeAlias = Union[Type[Exception], Tuple[Type[Exception], ...]]
+ELogger: TypeAlias = Union[logging.Logger, 'gqylpy_log']
+ECallback: TypeAlias = Callable[..., None]
+
+Second: TypeAlias = TypeVar('Second', bound=Union[int, float, str])
 
 UNIQUE: Final[Annotated[object, 'A unique object.']] = object()
 
@@ -157,7 +159,7 @@ def __getattr__(ename: str, /) -> Union[Type[BaseException], Type[Error]]:
 class TryExcept:
 
     def __new__(
-            cls, etype: Union[ExceptionTypes, Wrapped], /, **kw
+            cls, etype: Union[ETypes, Wrapped], /, **kw
     ) -> Union['TryExcept', WrappedClosure]:
         ins = object.__new__(cls)
         if isinstance(etype, type) and issubclass(etype, Exception):
@@ -178,19 +180,19 @@ class TryExcept:
 
     def __init__(
             self,
-            etype:      ExceptionTypes,
+            etype:      ETypes,
             /, *,
-            emsg:       Optional[str]               = None,
-            silent:     Optional[bool]              = None,
-            silent_exc: bool                        = UNIQUE,
-            raw:        Optional[bool]              = None,
-            raw_exc:    bool                        = UNIQUE,
-            invert:     bool                        = False,
-            last_tb:    bool                        = False,
-            logger:     Optional[ExceptionLogger]   = None,
-            ereturn:    Optional[Any]               = None,
-            ecallback:  Optional[ExceptionCallback] = None,
-            eexit:      bool                        = False
+            emsg:       Optional[str]       = None,
+            silent:     Optional[bool]      = None,
+            silent_exc: bool                = UNIQUE,
+            raw:        Optional[bool]      = None,
+            raw_exc:    bool                = UNIQUE,
+            invert:     bool                = False,
+            last_tb:    bool                = False,
+            logger:     Optional[ELogger]   = None,
+            ereturn:    Optional[Any]       = None,
+            ecallback:  Optional[ECallback] = None,
+            eexit:      bool                = False
     ):
         if not (emsg is None or isinstance(emsg, str)):
             raise __getattr__('ParameterError')(
@@ -284,7 +286,7 @@ class TryExcept:
 class Retry(TryExcept):
 
     def __new__(
-            cls, etype: Union[ExceptionTypes, Wrapped] = Exception, /, **kw
+            cls, etype: Union[ETypes, Wrapped] = Exception, /, **kw
     ) -> Union['Retry', WrappedClosure]:
         ins = TryExcept.__new__(cls, etype)
         if not isinstance(ins, Retry):
@@ -293,21 +295,21 @@ class Retry(TryExcept):
 
     def __init__(
             self,
-            etype:      ExceptionTypes                   = Exception,
+            etype:      ETypes                    = Exception,
             /, *,
-            emsg:       Optional[str]                    = None,
-            sleep:      Optional[Union[int, float, str]] = None,
-            count:      int                              = 0,
-            cycle:      Union[int, float, str]           = UNIQUE,
-            limit_time: Union[int, float, str]           = 0,
-            event:      Optional[threading.Event]        = None,
-            silent:     Optional[bool]                   = None,
-            silent_exc: bool                             = UNIQUE,
-            raw:        Optional[bool]                   = None,
-            raw_exc:    bool                             = UNIQUE,
-            invert:     bool                             = False,
-            last_tb:    bool                             = None,
-            logger:     Optional[ExceptionLogger]        = None
+            emsg:       Optional[str]             = None,
+            sleep:      Optional[Second]          = None,
+            cycle:      Second                    = UNIQUE,
+            count:      int                       = 0,
+            limit_time: Second                    = 0,
+            event:      Optional[threading.Event] = None,
+            silent:     Optional[bool]            = None,
+            silent_exc: bool                      = UNIQUE,
+            raw:        Optional[bool]            = None,
+            raw_exc:    bool                      = UNIQUE,
+            invert:     bool                      = False,
+            last_tb:    bool                      = None,
+            logger:     Optional[ELogger]         = None
     ):
         x = 'sleep'
         if cycle is not UNIQUE:
@@ -466,16 +468,16 @@ class Retry(TryExcept):
 
 @contextmanager
 def TryContext(
-        etype:     ExceptionTypes,
+        etype:     ETypes,
         /, *,
-        emsg:      Optional[str]               = None,
-        silent:    bool                        = False,
-        raw:       bool                        = False,
-        invert:    bool                        = False,
-        last_tb:   bool                        = False,
-        logger:    Optional[ExceptionLogger]   = None,
-        ecallback: Optional[ExceptionCallback] = None,
-        eexit:     bool                        = False
+        emsg:      Optional[str]       = None,
+        silent:    bool                = False,
+        raw:       bool                = False,
+        invert:    bool                = False,
+        last_tb:   bool                = False,
+        logger:    Optional[ELogger]   = None,
+        ecallback: Optional[ECallback] = None,
+        eexit:     bool                = False
 ) -> None:
     logger = get_logger(logger)
     try:
