@@ -14,7 +14,12 @@ from contextlib import contextmanager
 
 from types import FrameType, TracebackType
 from typing import \
-    TypeVar, Type, Final, Optional, Union, Tuple, Callable, NoReturn, Any
+    TypeVar, Type, Optional, Union, Tuple, Callable, NoReturn, Any
+
+if sys.version_info >= (3, 8):
+    from typing import Final
+else:
+    Final = Type
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
@@ -131,7 +136,7 @@ class __history__(dict, metaclass=type('SingletonMode', (MasqueradeClass,), {
         return copy(self)
 
 
-def __getattr__(ename: str, /) -> Union[Type[BaseException], Type[Error]]:
+def __getattr__(ename: str) -> Union[Type[BaseException], Type[Error]]:
     if ename in __history__:
         return __history__[ename]
 
@@ -159,7 +164,7 @@ def __getattr__(ename: str, /) -> Union[Type[BaseException], Type[Error]]:
 class TryExcept:
 
     def __new__(
-            cls, etype: Union[ETypes, Wrapped], /, **kw
+            cls, etype: Union[ETypes, Wrapped], **kw
     ) -> Union['TryExcept', WrappedClosure]:
         ins = object.__new__(cls)
         if isinstance(etype, type) and issubclass(etype, Exception):
@@ -181,7 +186,7 @@ class TryExcept:
     def __init__(
             self,
             etype:      ETypes,
-            /, *,
+            *,
             emsg:       Optional[str]       = None,
             silent:     Optional[bool]      = None,
             silent_exc: bool                = UNIQUE,
@@ -231,7 +236,7 @@ class TryExcept:
         self.ecallback = ecallback
         self.eexit     = eexit
 
-    def __call__(self, func: Wrapped, /) -> WrappedClosure:
+    def __call__(self, func: Wrapped) -> WrappedClosure:
         try:
             core = func.__closure__[1].cell_contents.core.__func__
         except (TypeError, IndexError, AttributeError):
@@ -286,7 +291,7 @@ class TryExcept:
 class Retry(TryExcept):
 
     def __new__(
-            cls, etype: Union[ETypes, Wrapped] = Exception, /, **kw
+            cls, etype: Union[ETypes, Wrapped] = Exception, **kw
     ) -> Union['Retry', WrappedClosure]:
         ins = TryExcept.__new__(cls, etype)
         if not isinstance(ins, Retry):
@@ -296,7 +301,7 @@ class Retry(TryExcept):
     def __init__(
             self,
             etype:      ETypes                    = Exception,
-            /, *,
+            *,
             emsg:       Optional[str]             = None,
             sleep:      Optional[Second]          = None,
             cycle:      Second                    = UNIQUE,
@@ -469,7 +474,7 @@ class Retry(TryExcept):
 @contextmanager
 def TryContext(
         etype:     ETypes,
-        /, *,
+        *,
         emsg:      Optional[str]       = None,
         silent:    bool                = False,
         raw:       bool                = False,
@@ -521,17 +526,19 @@ def get_logger(logger: logging.Logger) -> Callable[[str], None]:
     else:
         caller = logger.error
 
-    if previous_frame.f_code is TryContext.__wrapped__.__code__:
-        stacklevel = 3
-    else:
-        stacklevel = 4
-    if is_glog_module:
-        stacklevel += 1
+    if sys.version_info >= (3, 8):
+        if previous_frame.f_code is TryContext.__wrapped__.__code__:
+            stacklevel = 3
+        else:
+            stacklevel = 4
+        if is_glog_module:
+            stacklevel += 1
+        return functools.partial(caller, stacklevel=stacklevel)
 
-    return functools.partial(caller, stacklevel=stacklevel)
+    return caller
 
 
-def get_einfo(e: Exception, /, *, raw: bool, last_tb: bool) -> str:
+def get_einfo(e: Exception, *, raw: bool, last_tb: bool) -> str:
     try:
         if raw:
             return traceback.format_exc()
@@ -559,7 +566,7 @@ def get_einfo(e: Exception, /, *, raw: bool, last_tb: bool) -> str:
             'https://github.com/gqylpy/exceptionx/issues, thank you.\n'
 
 
-def time2second(unit_time: str, /, *, __pattern__ = re.compile(r'''
+def time2second(unit_time: str, *, __pattern__=re.compile(r'''
         (?:(\d+(?:\.\d+)?)d)?
         (?:(\d+(?:\.\d+)?)h)?
         (?:(\d+(?:\.\d+)?)m)?
@@ -568,12 +575,14 @@ def time2second(unit_time: str, /, *, __pattern__ = re.compile(r'''
     if unit_time.isdigit():
         return int(unit_time)
 
-    if not (unit_time and (m := __pattern__.fullmatch(unit_time))):
+    match = __pattern__.fullmatch(unit_time)
+
+    if not (unit_time and match):
         raise ValueError(f'unit time {unit_time!r} format is incorrect.')
 
     r = 0
 
-    for x, s in zip(m.groups(), (86400, 3600, 60, 1)):
+    for x, s in zip(match.groups(), (86400, 3600, 60, 1)):
         if x is not None:
             x = int(x) if x.isdigit() else float(x)
             r += x * s
@@ -581,7 +590,7 @@ def time2second(unit_time: str, /, *, __pattern__ = re.compile(r'''
     return int(r) if isinstance(r, float) and r.is_integer() else r
 
 
-def second2time(second: Union[int, float], /) -> str:
+def second2time(second: Union[int, float]) -> str:
     sec = int(second)
     dec = round(second - sec, 2)
 
