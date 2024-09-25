@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='exceptionx',
-    version='4.1.4',
+    version='4.1.4bc1',
     author='Unnamed great master',
     author_email='<gqylpy@outlook.com>',
     license='MIT',
@@ -28,6 +28,7 @@ setuptools.setup(
         'Topic :: Software Development :: Bug Tracking',
         'Topic :: Software Development :: Widget Sets',
         'Topic :: Artistic Software',
+        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
