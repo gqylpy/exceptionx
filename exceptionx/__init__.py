@@ -79,7 +79,7 @@ __history__: Dict[str, Type[Error]]
 # This dictionary is read-only.
 
 
-def __getattr__(ename: str, /) -> Type[Error]:
+def __getattr__(ename: str) -> Type[Error]:
     """
     Create an exception type called `ename` and return it.
 
@@ -95,7 +95,7 @@ def __getattr__(ename: str, /) -> Type[Error]:
 
 def TryExcept(
         etype:     ETypes,
-        /, *,
+        *,
         emsg:      Optional[str]       = None,
         silent:    Optional[bool]      = None,
         raw:       Optional[bool]      = None,
@@ -167,7 +167,7 @@ def TryExcept(
 
 def Retry(
         etype:      Optional[ETypes]            = None,
-        /, *,
+        *,
         emsg:       Optional[str]               = None,
         sleep:      Optional[Second]            = None,
         count:      Optional[int]               = None,
@@ -259,7 +259,7 @@ def Retry(
 
 def TryContext(
         etype:     ETypes,
-        /, *,
+        *,
         emsg:      Optional[str]       = None,
         silent:    Optional[bool]      = None,
         raw:       Optional[bool]      = None,
@@ -270,7 +270,7 @@ def TryContext(
         eexit:     Optional[bool]      = None
 ) -> None:
     """
-    TryContext is a context manager that handles exceptions raised within the
+    `TryContext` is a context manager that handles exceptions raised within the
     context.
 
         >>> with TryContext(ValueError):
