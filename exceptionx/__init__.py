@@ -45,7 +45,7 @@ For more information please visit https://github.com/gqylpy/exceptionx.
 import sys
 import typing
 
-from typing import Type, TypeVar, Optional, Union, Tuple, Dict, Callable, Any
+from typing import Type, TypeVar, Protocol, Optional, Tuple, Dict, Callable, Any
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -53,17 +53,24 @@ else:
     TypeAlias = TypeVar('TypeAlias')
 
 if typing.TYPE_CHECKING:
-    import logging
     import threading
+
+
+class HasWarningMethod(Protocol):
+    def warning(self, msg: Any): ...
+
+
+class HasErrorMethod(Protocol):
+    def error(self, msg: Any): ...
+
 
 ETypes: TypeAlias = \
     TypeVar('ETypes', Type[Exception], Tuple[Type[Exception], ...])
 
-ELogger: TypeAlias = TypeVar('ELogger', 'logging.Logger', 'gqylpy_log')
 ECallback: TypeAlias = TypeVar('ECallback', bound=Callable[..., None])
 
 WrappedClosure: TypeAlias = TypeVar('WrappedClosure', bound=Callable[..., Any])
-Second: TypeAlias = TypeVar('Second', bound=Union[int, float, str])
+Second: TypeAlias = TypeVar('Second', int, float, str)
 
 
 class Error(Exception):
@@ -96,15 +103,15 @@ def __getattr__(ename: str, /) -> Type[Error]:
 def TryExcept(
         etype:     ETypes,
         /, *,
-        emsg:      Optional[str]       = None,
-        silent:    Optional[bool]      = None,
-        raw:       Optional[bool]      = None,
-        invert:    Optional[bool]      = None,
-        last_tb:   Optional[bool]      = None,
-        logger:    Optional[ELogger]   = None,
-        ereturn:   Optional[Any]       = None,
-        ecallback: Optional[ECallback] = None,
-        eexit:     Optional[bool]      = None
+        emsg:      Optional[str]            = None,
+        silent:    Optional[bool]           = None,
+        raw:       Optional[bool]           = None,
+        invert:    Optional[bool]           = None,
+        last_tb:   Optional[bool]           = None,
+        logger:    Optional[HasErrorMethod] = None,
+        ereturn:   Optional[Any]            = None,
+        ecallback: Optional[ECallback]      = None,
+        eexit:     Optional[bool]           = None
 ) -> WrappedClosure:
     """
     `TryExcept` is a decorator that handles exceptions raised by the function it
@@ -177,7 +184,7 @@ def Retry(
         raw:        Optional[bool]              = None,
         invert:     Optional[bool]              = None,
         last_tb:    Optional[bool]              = None,
-        logger:     Optional[ELogger]           = None
+        logger:     Optional[HasWarningMethod]  = None
 ) -> WrappedClosure:
     """
     `Retry` is a decorator that retries exceptions raised by the function it
@@ -260,17 +267,17 @@ def Retry(
 def TryContext(
         etype:     ETypes,
         /, *,
-        emsg:      Optional[str]       = None,
-        silent:    Optional[bool]      = None,
-        raw:       Optional[bool]      = None,
-        invert:    Optional[bool]      = None,
-        last_tb:   Optional[bool]      = None,
-        logger:    Optional[ELogger]   = None,
-        ecallback: Optional[ECallback] = None,
-        eexit:     Optional[bool]      = None
+        emsg:      Optional[str]            = None,
+        silent:    Optional[bool]           = None,
+        raw:       Optional[bool]           = None,
+        invert:    Optional[bool]           = None,
+        last_tb:   Optional[bool]           = None,
+        logger:    Optional[HasErrorMethod] = None,
+        ecallback: Optional[ECallback]      = None,
+        eexit:     Optional[bool]           = None
 ) -> None:
     """
-    TryContext is a context manager that handles exceptions raised within the
+    `TryContext` is a context manager that handles exceptions raised within the
     context.
 
         >>> with TryContext(ValueError):
