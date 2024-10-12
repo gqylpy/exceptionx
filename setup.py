@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='exceptionx',
-    version='3.0alpha1',
+    version='3.0',
     author='Unnamed great master',
     author_email='<gqylpy@outlook.com>',
     license='MIT',

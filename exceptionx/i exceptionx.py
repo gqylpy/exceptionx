@@ -14,12 +14,12 @@ from contextlib import contextmanager
 
 from types import FrameType, TracebackType
 from typing import \
-    TypeVar, Type, Optional, Union, Tuple, Callable, NoReturn, Any
+    Type, TypeVar, Optional, Union, Tuple, Callable, NoReturn, Any
 
 if sys.version_info >= (3, 8):
-    from typing import Final
+    from typing import Final, Protocol
 else:
-    Final = Type
+    Final = Protocol = Type
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
@@ -34,14 +34,22 @@ if sys.version_info >= (3, 10):
 else:
     TypeAlias = TypeVar('TypeAlias')
 
+
+class HasWarningMethod(Protocol):
+    def warning(self, msg: Any): ...
+
+
+class HasErrorMethod(Protocol):
+    def error(self, msg: Any): ...
+
+
 Wrapped = WrappedClosure = TypeVar('Wrapped', bound=Callable[..., Any])
 WrappedReturn: TypeAlias = TypeVar('WrappedReturn')
 
-ETypes: TypeAlias = Union[Type[Exception], Tuple[Type[Exception], ...]]
-ELogger: TypeAlias = Union[logging.Logger, 'gqylpy_log']
+ETypes:    TypeAlias = Union[Type[Exception], Tuple[Type[Exception], ...]]
+ELogger:   TypeAlias = Union[HasWarningMethod, HasErrorMethod]
 ECallback: TypeAlias = Callable[..., None]
-
-Second: TypeAlias = TypeVar('Second', bound=Union[int, float, str])
+Second:    TypeAlias = TypeVar('Second', int, float, str)
 
 UNIQUE: Final[Annotated[object, 'A unique object.']] = object()
 
@@ -507,35 +515,38 @@ def stderr(einfo: str) -> None:
     sys.stderr.write(f'[{now}] {einfo}\n')
 
 
-def get_logger(logger: logging.Logger) -> Callable[[str], None]:
+def get_logger(logger: ELogger) -> Callable[[str], None]:
     if logger is None:
         return stderr
-
-    is_glog_module: bool = getattr(logger, '__package__', None) == 'gqylpy_log'
-
-    if not (isinstance(logger, logging.Logger) or is_glog_module):
-        raise ValueError(
-            'parameter "logger" must be an instance of "logging.Logger", '
-            f'not "{logger.__class__.__name__}".'
-        )
 
     previous_frame: FrameType = sys._getframe(1)
 
     if previous_frame.f_back.f_code is Retry.__init__.__code__:
-        caller = logger.warning
+        name = 'warning'
     else:
-        caller = logger.error
+        name = 'error'
 
-    if sys.version_info >= (3, 8):
-        if previous_frame.f_code is TryContext.__wrapped__.__code__:
-            stacklevel = 3
-        else:
-            stacklevel = 4
-        if is_glog_module:
-            stacklevel += 1
-        return functools.partial(caller, stacklevel=stacklevel)
+    method = getattr(logger, name, None)
 
-    return caller
+    if not callable(method):
+        raise __getattr__('ParameterError')(
+            f'parameter "logger" must have a "{name}" method.'
+        )
+
+    if sys.version_info < (3, 8):
+        return method
+
+    if isinstance(logger, logging.Logger):
+        stacklevel = 4
+    elif getattr(logger, '__package__', None) == 'gqylpy_log':
+        stacklevel = 5
+    else:
+        return method
+
+    if previous_frame.f_code is TryContext.__wrapped__.__code__:
+        stacklevel -= 1
+
+    return functools.partial(method, stacklevel=stacklevel)
 
 
 def get_einfo(e: Exception, *, raw: bool, last_tb: bool) -> str:
