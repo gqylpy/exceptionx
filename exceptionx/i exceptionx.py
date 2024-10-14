@@ -346,7 +346,7 @@ class Retry(TryExcept):
             sleep = int(sleep)
 
         if count == 0:
-            count = 'N'
+            count = float('inf')
         elif not (isinstance(count, int) and count > 0):
             raise __getattr__('ParameterError')(
                 'parameter "count" must be of type int and greater than or '
@@ -383,29 +383,16 @@ class Retry(TryExcept):
         )
 
     def core(self, func: Wrapped, *a, **kw) -> WrappedReturn:
-        count = 0
+        count = 1
         before = time.monotonic()
         while True:
             start = time.monotonic()
             try:
                 return func(*a, **kw)
             except Exception as e:
-                contain_emsg: bool = self.emsg is None or self.emsg in str(e)
-                if isinstance(e, self.etype):
-                    if self.invert or not contain_emsg:
-                        raise
-                elif not (self.invert and contain_emsg):
-                    raise
-                count += 1
-                self.output_einfo(e, count=count, start=start, before=before)
-                end = time.monotonic()
-                sleep = max(.0, self.sleep - (end - start))
-                if (
-                        count == self.count
-                        or end - before + sleep >= self.limit_time
-                        or self.event is not None and self.event.is_set()
-                ):
-                    raise
+                count, sleep = self.retry_handling(
+                    e, count=count, start=start, before=before
+                )
                 time.sleep(sleep)
 
     async def acore(self, func: Wrapped, *a, **kw) -> WrappedReturn:
@@ -416,37 +403,45 @@ class Retry(TryExcept):
             try:
                 return await func(*a, **kw)
             except Exception as e:
-                contain_emsg: bool = self.emsg is None or self.emsg in str(e)
-                if isinstance(e, self.etype):
-                    if self.invert or not contain_emsg:
-                        raise
-                elif not (self.invert and contain_emsg):
-                    raise
-                count += 1
-                self.output_einfo(e, count=count, start=start, before=before)
-                end = time.monotonic()
-                sleep = max(.0, self.sleep - (end - start))
-                if (
-                        count == self.count
-                        or end - before + sleep >= self.limit_time
-                        or self.event is not None and self.event.is_set()
-                ):
-                    raise
-                time.sleep(sleep)
+                count, sleep = self.retry_handling(
+                    e, count=count, start=start, before=before
+                )
+                await asyncio.sleep(sleep)
+
+    def retry_handling(
+            self, e: Exception, *, count: int, start: float, before: float
+    ) -> Tuple[float, float]:
+        contain_emsg: bool = self.emsg is None or self.emsg in str(e)
+        if isinstance(e, self.etype):
+            if self.invert or not contain_emsg:
+                raise
+        elif not (self.invert and contain_emsg):
+            raise
+        if not (
+                self.silent
+                or time.monotonic() - start + self.sleep < .1
+                and self.count >= 30
+                and 1 < count < self.count
+                and (self.event is None or not self.event.is_set())
+        ):
+            self.output_einfo(e, count=count, start=start, before=before)
+        end = time.monotonic()
+        sleep = max(.0, self.sleep - (end - start))
+        if (
+                count == self.count
+                or end - before + sleep >= self.limit_time
+                or self.event is not None and self.event.is_set()
+        ):
+            raise
+        return count + 1, sleep
 
     def output_einfo(
             self, e: Exception, *, count: int, start: float, before: float
     ) -> None:
-        if (
-                self.silent or time.monotonic() - start + self.sleep < .1
-                and (self.count == 'N' or self.count >= 30)
-                and 1 < count < self.count
-                and (self.event is None or not self.event.is_set())
-        ):
-            return
-
         einfo: str = get_einfo(e, raw=self.raw, last_tb=self.last_tb)
-        x = f'[try:{count}/{self.count}'
+
+        max_count = 'N' if self.count == float('inf') else self.count
+        x = f'[try:{count}/{max_count}'
 
         if self.limit_time != float('inf'):
             x += f':{second2time(self.sleep)}'
