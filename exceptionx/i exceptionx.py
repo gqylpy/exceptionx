@@ -398,7 +398,7 @@ class Retry(TryExcept):
                 time.sleep(sleep)
 
     async def acore(self, func: Wrapped, *a, **kw) -> WrappedReturn:
-        count = 0
+        count = 1
         before = time.monotonic()
         while True:
             start = time.monotonic()
