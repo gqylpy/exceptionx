@@ -72,6 +72,7 @@ class HasErrorMethod(Protocol):
 ETypes: TypeAlias = \
     TypeVar('ETypes', Type[Exception], Tuple[Type[Exception], ...])
 
+ELogger: TypeAlias = TypeVar('ELogger', HasWarningMethod, HasErrorMethod, '...')
 ECallback: TypeAlias = TypeVar('ECallback', bound=Callable[..., None])
 
 WrappedClosure: TypeAlias = TypeVar('WrappedClosure', bound=Callable[..., Any])
@@ -108,15 +109,15 @@ def __getattr__(ename: str) -> Type[Error]:
 def TryExcept(
         etype:     ETypes,
         *,
-        emsg:      Optional[str]            = None,
-        silent:    Optional[bool]           = None,
-        raw:       Optional[bool]           = None,
-        invert:    Optional[bool]           = None,
-        last_tb:   Optional[bool]           = None,
-        logger:    Optional[HasErrorMethod] = None,
-        ereturn:   Optional[Any]            = None,
-        ecallback: Optional[ECallback]      = None,
-        eexit:     Optional[bool]           = None
+        emsg:      Optional[str]       = None,
+        silent:    Optional[bool]      = None,
+        raw:       Optional[bool]      = None,
+        invert:    Optional[bool]      = None,
+        last_tb:   Optional[bool]      = None,
+        logger:    Optional[ELogger]   = None,
+        ereturn:   Optional[Any]       = None,
+        ecallback: Optional[ECallback] = None,
+        eexit:     Optional[bool]      = None
 ) -> WrappedClosure:
     """
     `TryExcept` is a decorator that handles exceptions raised by the function it
@@ -189,7 +190,7 @@ def Retry(
         raw:        Optional[bool]              = None,
         invert:     Optional[bool]              = None,
         last_tb:    Optional[bool]              = None,
-        logger:     Optional[HasWarningMethod]  = None
+        logger:     Optional[ELogger]           = None
 ) -> WrappedClosure:
     """
     `Retry` is a decorator that retries exceptions raised by the function it
@@ -272,14 +273,14 @@ def Retry(
 def TryContext(
         etype:     ETypes,
         *,
-        emsg:      Optional[str]            = None,
-        silent:    Optional[bool]           = None,
-        raw:       Optional[bool]           = None,
-        invert:    Optional[bool]           = None,
-        last_tb:   Optional[bool]           = None,
-        logger:    Optional[HasErrorMethod] = None,
-        ecallback: Optional[ECallback]      = None,
-        eexit:     Optional[bool]           = None
+        emsg:      Optional[str]       = None,
+        silent:    Optional[bool]      = None,
+        raw:       Optional[bool]      = None,
+        invert:    Optional[bool]      = None,
+        last_tb:   Optional[bool]      = None,
+        logger:    Optional[ELogger]   = None,
+        ecallback: Optional[ECallback] = None,
+        eexit:     Optional[bool]      = None
 ) -> None:
     """
     `TryContext` is a context manager that handles exceptions raised within the
