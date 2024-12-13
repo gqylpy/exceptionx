@@ -508,7 +508,7 @@ def stderr(einfo: str) -> None:
     sys.stderr.write(f'[{now}] {einfo}\n')
 
 
-def get_logger(logger: logging.Logger) -> Callable[[str], None]:
+def get_logger(logger: Optional[ELogger]) -> Callable[[str], None]:
     if logger is None:
         return stderr
 
