@@ -245,21 +245,15 @@ class TryExcept:
         self.eexit     = eexit
 
     def __call__(self, func: Wrapped) -> WrappedClosure:
-        try:
-            core = func.__closure__[1].cell_contents.core.__func__
-        except (TypeError, IndexError, AttributeError):
-            if asyncio.iscoroutinefunction(func):
-                self.core = self.acore
+        if asyncio.iscoroutinefunction(func):
+            async def inner(*a, **kw) -> Any:
+                return await self.acore(func, *a, **kw)
         else:
-            if core in (TryExcept.acore, Retry.acore):
-                self.core = self.acore
-
-        @functools.wraps(func)
-        def inner(*a, **kw) -> Any:
-            return self.core(func, *a, **kw)
+            def inner(*a, **kw) -> Any:
+                return self.core(func, *a, **kw)
 
         inner.__self = self
-        return inner
+        return functools.wraps(func)(inner)
 
     def core(self, func: Wrapped, *a, **kw) -> WrappedReturn:
         try:
