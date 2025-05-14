@@ -1,13 +1,9 @@
+# coding:utf-8
 """
 The `exceptionx` is a flexible and convenient Python exception handling library
-that allows you to dynamically create exception classes and provides various
-exception handling mechanisms.
+that provides multiple exception handling mechanisms.
 
 Key Features:
-
-- Dynamic Exception Creation:
-    Dynamically generate exception classes through simple APIs for easy project
-    management and reuse.
 
 - Powerful Exception Handling:
     Offers decorators (`TryExcept`, `Retry`) and context managers (`TryContext`)
@@ -18,10 +14,6 @@ Key Features:
     exception output, logging, custom callbacks, and more.
 
 Example Usage:
-
-Dynamic Exception Creation:
-    >>> import exceptionx as ex
-    >>> raise ex.AnError(...)
 
 Handling Exceptions with Decorators:
     >>> from exceptionx import TryExcept, Retry
@@ -42,78 +34,29 @@ Handling Exceptions with Context Managers:
 
 For more information please visit https://github.com/gqylpy/exceptionx.
 """
-import sys
-import typing
+from typing import Type, TypeVar, Optional, Tuple, Callable, Any
 
-from typing import Type, TypeVar, Protocol, Optional, Tuple, Dict, Callable, Any
+ETypes = TypeVar('ETypes', Type[Exception], Tuple[Type[Exception], ...])
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    TypeAlias = TypeVar('TypeAlias')
+ELogger = TypeVar('ELogger')
+ECallback = TypeVar('ECallback', bound=Callable[..., None])
 
-if typing.TYPE_CHECKING:
-    import threading
-
-
-class HasWarningMethod(Protocol):
-    def warning(self, msg: Any): ...
-
-
-class HasErrorMethod(Protocol):
-    def error(self, msg: Any): ...
-
-
-ETypes: TypeAlias = \
-    TypeVar('ETypes', Type[Exception], Tuple[Type[Exception], ...])
-
-ELogger: TypeAlias = TypeVar('ELogger', HasWarningMethod, HasErrorMethod, '...')
-ECallback: TypeAlias = TypeVar('ECallback', bound=Callable[..., None])
-
-WrappedClosure: TypeAlias = TypeVar('WrappedClosure', bound=Callable[..., Any])
-Second: TypeAlias = TypeVar('Second', int, float, str)
-
-
-class Error(Exception):
-    """
-    All exception classes created with `exceptionx` inherit from it.
-    You can use it to handle any exception created by `exceptionx`.
-    """
-    msg: Any = Exception.args
-
-
-__history__: Dict[str, Type[Error]]
-# All the exception classes you've ever created are here.
-# This dictionary is read-only.
-
-
-def __getattr__(ename: str, /) -> Type[Error]:
-    """
-    Create an exception type called `ename` and return it.
-
-    The created exception type will be stored to the dictionary `__history__`,
-    and when you create an exception type with the same name again, directly get
-    the value from this dictionary, rather than being created repeatedly.
-
-    For Python built-in exception types, returned directly, are not repeatedly
-    creation, and not stored to dictionary `__history__`.
-    """
-    return __history__.setdefault(ename, type(ename, (Error,), {}))
+WrappedClosure = TypeVar('WrappedClosure', bound=Callable[..., Any])
+Second = TypeVar('Second', int, float, str)
 
 
 def TryExcept(
-        etype:     ETypes,
-        /, *,
-        emsg:      Optional[str]       = None,
-        silent:    Optional[bool]      = None,
-        raw:       Optional[bool]      = None,
-        invert:    Optional[bool]      = None,
-        last_tb:   Optional[bool]      = None,
-        logger:    Optional[ELogger]   = None,
-        ereturn:   Optional[Any]       = None,
-        ecallback: Optional[ECallback] = None,
-        eexit:     Optional[bool]      = None
-) -> WrappedClosure:
+        etype,           # type: ETypes
+        emsg     =None,  # type: Optional[str]
+        silent   =None,  # type: Optional[bool]
+        raw      =None,  # type: Optional[bool]
+        invert   =None,  # type: Optional[bool]
+        last_tb  =None,  # type: Optional[bool]
+        logger   =None,  # type: Optional[ELogger]
+        ereturn  =None,  # type: Optional[Any]
+        ecallback=None,  # type: Optional[ECallback]
+        eexit    =None   # type: Optional[bool]
+):
     """
     `TryExcept` is a decorator that handles exceptions raised by the function it
     decorates (support decorating asynchronous functions).
@@ -174,19 +117,18 @@ def TryExcept(
 
 
 def Retry(
-        etype:      Optional[ETypes]            = None,
-        /, *,
-        emsg:       Optional[str]               = None,
-        sleep:      Optional[Second]            = None,
-        count:      Optional[int]               = None,
-        limit_time: Optional[Second]            = None,
-        event:      Optional['threading.Event'] = None,
-        silent:     Optional[bool]              = None,
-        raw:        Optional[bool]              = None,
-        invert:     Optional[bool]              = None,
-        last_tb:    Optional[bool]              = None,
-        logger:     Optional[ELogger]           = None
-) -> WrappedClosure:
+        etype     =None,  # type: Optional[ETypes]
+        emsg      =None,  # type: Optional[str]
+        sleep     =None,  # type: Optional[Second]
+        count     =None,  # type: Optional[int]
+        limit_time=None,  # type: Optional[Second]
+        event     =None,  # type: Optional['threading.Event']
+        silent    =None,  # type: Optional[bool]
+        raw       =None,  # type: Optional[bool]
+        invert    =None,  # type: Optional[bool]
+        last_tb   =None,  # type: Optional[bool]
+        logger    =None   # type: Optional[ELogger]
+):
     """
     `Retry` is a decorator that retries exceptions raised by the function it
     decorates (support decorating asynchronous functions). When an exception is
@@ -266,17 +208,16 @@ def Retry(
 
 
 def TryContext(
-        etype:     ETypes,
-        /, *,
-        emsg:      Optional[str]       = None,
-        silent:    Optional[bool]      = None,
-        raw:       Optional[bool]      = None,
-        invert:    Optional[bool]      = None,
-        last_tb:   Optional[bool]      = None,
-        logger:    Optional[ELogger]   = None,
-        ecallback: Optional[ECallback] = None,
-        eexit:     Optional[bool]      = None
-) -> None:
+        etype,           # type: ETypes
+        emsg     =None,  # type: Optional[str]
+        silent   =None,  # type: Optional[bool]
+        raw      =None,  # type: Optional[bool]
+        invert   =None,  # type: Optional[bool]
+        last_tb  =None,  # type: Optional[bool]
+        logger   =None,  # type: Optional[ELogger]
+        ecallback=None,  # type: Optional[ECallback]
+        eexit    =None   # type: Optional[bool]
+):
     """
     `TryContext` is a context manager that handles exceptions raised within the
     context.
@@ -333,15 +274,15 @@ def TryContext(
 
 class _xe6_xad_x8c_xe7_x90_xaa_xe6_x80_xa1_xe7_x8e_xb2_xe8_x90_x8d_xe4_xba_x91:
     gpack = globals()
-    gpath = f'{__name__}.i {__name__}'
-    gcode = __import__(gpath, fromlist=...)
+    gpath = __name__ + '.i ' + __name__
+    gcode = __import__(gpath, fromlist='sys')
 
-    gpack['Error'] = gcode.Error
-    gpack['__history__'] = gcode.__history__
-
-    for gname in gcode.__dir__():
+    for gname in dir(gcode):
         gfunc = getattr(gcode, gname)
         if gname in gpack and getattr(gfunc, '__module__', None) == gpath:
             gfunc.__module__ = __package__
-            gfunc.__doc__ = gpack[gname].__doc__
+            try:
+                gfunc.__doc__ = gpack[gname].__doc__
+            except AttributeError:
+                pass
             gpack[gname] = gfunc
