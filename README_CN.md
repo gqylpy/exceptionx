@@ -1,40 +1,20 @@
 [<img alt="LOGO" src="https://python.org/favicon.ico" height="21" width="21"/>](http://gqylpy.com)
 [![Release](https://img.shields.io/github/release/gqylpy/exceptionx.svg?style=flat-square")](https://github.com/gqylpy/exceptionx/releases/latest)
-[![Python Versions](https://img.shields.io/pypi/pyversions/exceptionx)](https://pypi.org/project/exceptionx)
+[![Python Versions](https://img.shields.io/badge/python-2.7+/3.6+-blue.svg)](https://pypi.org/project/exceptionx)
 [![License](https://img.shields.io/pypi/l/exceptionx)](https://github.com/gqylpy/exceptionx/blob/main/LICENSE)
 [![Downloads](https://static.pepy.tech/badge/exceptionx)](https://pepy.tech/project/exceptionx)
 
 # exceptionx
 [English](README.md) | 中文
 
-__exceptionx__ 是一个灵活且便捷的Python异常处理库，允许你动态创建异常类，并提供多种异常处理机制。
+__exceptionx__ 是一个灵活且便捷的Python异常处理库，提供多种异常处理机制。
 > exceptionx 的前身是 [gqylpy-exception](https://github.com/gqylpy/gqylpy-exception)。
 
-<kbd>pip3 install exceptionx</kbd>
-
-## 动态创建异常
-
-使用 exceptionx，你可以在需要时即时创建异常类，而无需提前定义。例如，如果你希望抛出一个名为 `NotUnderstandError` 的异常，只需导入库并以如下方式调用：
-```python
-import exceptionx as ex
-
-raise ex.NotUnderstandError(...)
-```
-
-在这里，`NotUnderstandError` 并不是 exceptionx 预先定义的，而是在你尝试访问 `e.NotUnderstandError` 时通过魔化方法 `__getattr__` 动态创建的。这种灵活性意味着你可以根据需要创建任何名称的异常类。
-
-此外，exceptionx 还确保不会重复创建相同的异常类。所有已创建的异常类都会被存储在 `e.__history__` 字典中，以便后续快速访问。
-
-还有一种用法，导入即创建：
-```python
-from exceptionx import NotUnderstandError
-
-raise NotUnderstandError(...)
-```
+<kbd>pip install exceptionx</kbd>
 
 ## 强大的异常处理功能
 
-exceptionx 还提供了一系列强大的异常处理工具：
+exceptionx 提供了一系列强大的异常处理工具：
 - `TryExcept`: 装饰器，捕获被装饰的函数中引发的异常，并将异常信息输出到终端（不是抛出）。这有助于避免程序因未处理的异常而崩溃。
 - `Retry`: 装饰器，同上，并会尝试重新执行，通过参数控制次数和每次重试之间的间隔时间，在达到最大次数后抛出异常。
 - `TryContext`: 上下文管理器，使用 `with` 语句，你可以轻松捕获代码块中引发的异常，并将异常信息输出到终端。

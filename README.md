@@ -1,42 +1,20 @@
 [<img alt="LOGO" src="https://python.org/favicon.ico" height="21" width="21"/>](http://gqylpy.com)
 [![Release](https://img.shields.io/github/release/gqylpy/exceptionx.svg?style=flat-square")](https://github.com/gqylpy/exceptionx/releases/latest)
-[![Python Versions](https://img.shields.io/pypi/pyversions/exceptionx)](https://pypi.org/project/exceptionx)
+[![Python Versions](https://img.shields.io/badge/python-2.7+/3.6+-blue.svg)](https://pypi.org/project/exceptionx)
 [![License](https://img.shields.io/pypi/l/exceptionx)](https://github.com/gqylpy/exceptionx/blob/main/LICENSE)
 [![Downloads](https://static.pepy.tech/badge/exceptionx)](https://pepy.tech/project/exceptionx)
 
 # exceptionx
 English | [中文](https://github.com/gqylpy/exceptionx/blob/main/README_CN.md)
 
-__exceptionx__ is a flexible and convenient Python exception handling library that allows you to dynamically create exception classes and provides various exception handling mechanisms.
+__exceptionx__ is a flexible and convenient Python exception handling library that provides multiple exception handling mechanisms.
 > The predecessor of exceptionx is [gqylpy-exception](https://github.com/gqylpy/gqylpy-exception).
 
-<kbd>pip3 install exceptionx</kbd>
-
-## Dynamically Creating Exceptions
-
-With exceptionx, you can instantly create exception classes when needed, without the need for advance definition. For example, if you want to throw an exception named `NotUnderstandError`, you can simply import the library and call it as follows:
-
-```python
-import exceptionx as ex
-
-raise ex.NotUnderstandError(...)
-```
-
-Here, `NotUnderstandError` is not predefined by exceptionx but is dynamically created through the magic method `__getattr__` when you try to access `e.NotUnderstandError`. This flexibility means you can create exception classes with any name as needed.
-
-Additionally, exceptionx ensures that the same exception class is not created repeatedly. All created exception classes are stored in the `e.__history__` dictionary for quick access later.
-
-There is another usage, import and create immediately:
-
-```python
-from exceptionx import NotUnderstandError
-
-raise NotUnderstandError(...)
-```
+<kbd>pip install exceptionx</kbd>
 
 ## Powerful Exception Handling Capabilities
 
-exceptionx also provides a series of powerful exception handling tools:
+exceptionx provides a series of powerful exception handling tools:
 
 - `TryExcept`: A decorator that catches exceptions raised in the decorated function and outputs the exception information to the terminal (instead of throwing it). This helps prevent the program from crashing due to unhandled exceptions.
 - `Retry`: A decorator that works similarly to `TryExcept` but attempts to re-execute the function, controlling the number of attempts and the interval between each retry through parameters. It throws an exception after reaching the maximum number of attempts.

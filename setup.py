@@ -1,8 +1,14 @@
+# coding:utf-8
+import sys
+import codecs
 import setuptools
+
+if sys.version_info.major < 3:
+    open = codecs.open
 
 setuptools.setup(
     name='exceptionx',
-    version='4.1.9',
+    version='0.0alpha1',
     author='Unnamed great master',
     author_email='<gqylpy@outlook.com>',
     license='MIT',
@@ -16,7 +22,7 @@ setuptools.setup(
     long_description=open('README.md', encoding='utf8').read(),
     long_description_content_type='text/markdown',
     packages=['exceptionx'],
-    python_requires='>=3.8',
+    python_requires='>=2.7',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
@@ -28,6 +34,10 @@ setuptools.setup(
         'Topic :: Software Development :: Bug Tracking',
         'Topic :: Software Development :: Widget Sets',
         'Topic :: Artistic Software',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
